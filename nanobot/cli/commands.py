@@ -37,6 +37,7 @@ from nanobot.cli.stream import StreamRenderer, ThinkingSpinner
 from nanobot.config.paths import get_workspace_path
 from nanobot.config.schema import Config
 from nanobot.utils.helpers import sync_workspace_templates
+from loguru import logger
 
 app = typer.Typer(
     name="nanobot",
@@ -256,9 +257,11 @@ def onboard(
     """Initialize nanobot configuration and workspace."""
     from nanobot.config.loader import get_config_path, load_config, save_config, set_config_path
     from nanobot.config.schema import Config
-
+    logger.info(workspace)
+    logger.info(config)
     if config:
         config_path = Path(config).expanduser().resolve()
+        logger.info(config_path)
         set_config_path(config_path)
         console.print(f"[dim]Using config: {config_path}[/dim]")
     else:
