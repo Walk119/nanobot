@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick, defineAsyncComponent } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import Vditor from 'vditor'
 import 'vditor/dist/index.css'
 import { 
@@ -10,6 +10,7 @@ import {
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import TreeNode from './TreeNode.vue'
+import { useSkillTree } from './composables/useSkillTree'
 
 // Utility function for className merging
 function cn(...inputs: ClassValue[]) {
@@ -43,7 +44,7 @@ const INITIAL_NODES: Node[] = [
     name: 'Welcome.md',
     type: 'file',
     parentId: 'root-folder-1',
-    content: '# Welcome to Markdown Manager\n\nThis is a simple web-based Markdown editor and file manager.\n\n## Features\n\n- **File Tree**: Organize your notes into folders.\n- **Typora-like Editor**: Real-time rendering enabled using Vditor (`ir` mode).\n- **GitHub Flavored Markdown**: Supports tables, strikethrough, task lists, and more.\n\n### Code Example\n\n```js\nfunction greet() {\n  console.log("Hello World!");\n}\n```\n\n| Feature | Status |\n| :--- | :--- |\n| Create Files | ✅ |\n| Create Folders | ✅ |\n| Real-time Preview | ✅ |\n| Local State | ✅ |\n\nStart writing by creating a new file or editing this one!',
+    content: '# Welcome to Markdown Manager\n\nThis is a simple web-based Markdown editor and file manager.\n\n## Features\n\n- **File Tree**: Organize your notes into folders.\n- **Typora-like Editor**: Real-time rendering enabled using Vditor (`ir` mode).\n- **GitHub Flavored Markdown**: Supports tables, strikethrough, task lists, and more.\n\n### Code Example\n\n``js\nfunction greet() {\n  console.log("Hello World!");\n}\n```\n\n| Feature | Status |\n| :--- | :--- |\n| Create Files | ✅ |\n| Create Folders | ✅ |\n| Real-time Preview | ✅ |\n| Local State | ✅ |\n\nStart writing by creating a new file or editing this one!',
     createdAt: Date.now(),
     updatedAt: Date.now()
   },
@@ -69,10 +70,12 @@ const INITIAL_NODES: Node[] = [
 
 const generateId = () => Math.random().toString(36).substring(2, 11)
 
+// 使用技能树 composable
+const { nodes, isLoading, loadFromServer, loadFileContent } = useSkillTree()
+
 // State
-const nodes = ref<Node[]>(INITIAL_NODES)
-const activeFileId = ref<string | null>('welcome-file')
-const expandedFolders = ref<Set<string>>(new Set(['root-folder-1', 'root-folder-2']))
+const activeFileId = ref<string | null>(null)
+const expandedFolders = ref<Set<string>>(new Set())
 const editingNodeId = ref<string | null>(null)
 const isSidebarOpen = ref(true)
 const editValues = ref<Record<string, string>>({})
@@ -86,8 +89,14 @@ const activeFile = computed(() => {
   return nodes.value.find(n => n.id === activeFileId.value && n.type === 'file')
 })
 
-// Initialize Vditor when active file changes
-onMounted(() => {
+// Initialize and load data
+onMounted(async () => {
+  const result = await loadFromServer()
+  
+  // 设置初始状态
+  expandedFolders.value = new Set(result.expandedFolders)
+  activeFileId.value = result.firstFileId
+  
   if (activeFile.value) {
     initVditor()
   }
@@ -124,6 +133,10 @@ const watchActiveFile = async () => {
   await nextTick()
   
   if (activeFile.value) {
+    // 如果是从后端加载的数据且内容为空，尝试获取文件内容
+    if (!activeFile.value.content && !['welcome-file', 'todo-file'].includes(activeFile.value.id)) {
+      await loadFileContent(activeFile.value.id, activeFile.value.name)
+    }
     initVditor()
   }
 }
@@ -287,7 +300,12 @@ const sortedRootNodes = computed(() => {
       </div>
       
       <div class="flex-1 overflow-y-auto py-2 px-1 custom-scrollbar">
-        <template v-if="sortedRootNodes.length > 0">
+        <template v-if="isLoading">
+          <div class="text-center p-4 text-sm text-slate-500">
+            Loading skills tree...
+          </div>
+        </template>
+        <template v-else-if="sortedRootNodes.length > 0">
           <TreeNode 
             v-for="node in sortedRootNodes" 
             :key="node.id" 
