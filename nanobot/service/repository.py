@@ -1,8 +1,10 @@
 """Repository layer for skills file system operations."""
+import datetime
 import os
 from pathlib import Path
 from typing import Optional
 from .models import FileNode, SkillsTree
+from nanobot.utils.logger import logger
 
 
 class SkillsRepository:
@@ -28,12 +30,13 @@ class SkillsRepository:
         """
         if not self.skills_root.exists():
             raise FileNotFoundError(f"Skills directory not found: {self.skills_root}")
-        
+        logger.info("Building skills tree from: {}", self.skills_root)
         children = []
         total_files = 0
         total_directories = 0
-        
+
         for item in self.skills_root.iterdir():
+            logger.info("Processing: {}", item)
             node = self._build_file_node(item, include_content, max_depth, current_depth=0)
             if node:
                 children.append(node)
@@ -111,6 +114,7 @@ class SkillsRepository:
     def _create_file_node(self, path: Path, relative_path: str, include_content: bool) -> FileNode:
         """Create a FileNode for a file."""
         try:
+            logger.info(f"generate file {path} {relative_path}")
             stat = path.stat()
             size = stat.st_size
             
@@ -121,7 +125,9 @@ class SkillsRepository:
                     content = path.read_text(encoding='utf-8')
                 except (UnicodeDecodeError, PermissionError):
                     content = None
-            
+            # Get timestamps
+            created_at = datetime.datetime.fromtimestamp(stat.st_ctime)
+            updated_at = datetime.datetime.fromtimestamp(stat.st_mtime)
             return FileNode(
                 name=path.name,
                 type='file',
@@ -129,6 +135,8 @@ class SkillsRepository:
                 content=content,
                 size=size,
                 extension=path.suffix,
+                created_at=created_at,
+                updated_at=updated_at
             )
         except (OSError, IOError):
             # Return basic node even if we can't read all details
@@ -149,6 +157,7 @@ class SkillsRepository:
         current_depth: int
     ) -> FileNode:
         """Create a FileNode for a directory."""
+        logger.info(f"generate directory {path} {relative_path}")
         # Check depth limit
         if max_depth != -1 and current_depth >= max_depth:
             return FileNode(

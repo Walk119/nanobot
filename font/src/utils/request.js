@@ -3,7 +3,7 @@ import axios from 'axios';
 
 // 创建一个 axios 实例
 const service = axios.create({
-  baseURL: import.meta.env.VITE_APP_BASE_API || process.env.VUE_APP_BASE_API, // 从环境变量中读取基础路径
+  baseURL: import.meta.env.VITE_APP_BASE_API || '/', // 从环境变量中读取基础路径，默认值为 '/'
   timeout: 15000, // 请求超时时间
 });
 

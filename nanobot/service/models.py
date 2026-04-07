@@ -26,6 +26,8 @@ class FileNode:
     children: list['FileNode'] = field(default_factory=list)
     size: int = 0
     extension: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     
     def to_dict(self) -> dict:
         """Convert to dictionary representation."""
@@ -40,6 +42,8 @@ class FileNode:
                 'content': self.content,
                 'size': self.size,
                 'extension': self.extension,
+                'created_at': self.created_at,
+                'updated_at': self.updated_at,
             })
         else:
             result['children'] = [child.to_dict() for child in self.children]

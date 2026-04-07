@@ -1,10 +1,10 @@
 // composables/useSkillTree.ts
-import { ref } from 'vue'
+import { ref, type Ref } from 'vue'
 import request from '../utils/request.js'
 
 type NodeType = 'file' | 'folder'
 
-interface Node {
+export interface Node {
   id: string
   name: string
   type: NodeType
@@ -44,7 +44,7 @@ const INITIAL_NODES: Node[] = [
     name: 'Welcome.md',
     type: 'file',
     parentId: 'root-folder-1',
-    content: '# Welcome to Markdown Manager\n\nThis is a simple web-based Markdown editor and file manager.\n\n## Features\n\n- **File Tree**: Organize your notes into folders.\n- **Typora-like Editor**: Real-time rendering enabled using Vditor (`ir` mode).\n- **GitHub Flavored Markdown**: Supports tables, strikethrough, task lists, and more.\n\n### Code Example\n\n```js\nfunction greet() {\n  console.log("Hello World!");\n}\n```\n\n| Feature | Status |\n| :--- | :--- |\n| Create Files | ✅ |\n| Create Folders | ✅ |\n| Real-time Preview | ✅ |\n| Local State | ✅ |\n\nStart writing by creating a new file or editing this one!',
+    content: '# Welcome to Markdown Manager\n\nThis is a simple web-based Markdown editor and file manager.\n\n## Features\n\n- **File Tree**: Organize your notes into folders.\n- **Typora-like Editor**: Real-time rendering enabled using Vditor (`ir` mode).\n- **GitHub Flavored Markdown**: supports tables, strikethrough, task lists, and more.\n\n### Code Example\n\n```js\nfunction greet() {\n  console.log("Hello World!");\n}\n```\n\n| Feature | Status |\n| :--- | :--- |\n| Create Files | ✅ |\n| Create Folders | ✅ |\n| Real-time Preview | ✅ |\n| Local State | ✅ |\n\nStart writing by creating a new file or editing this one!',
     createdAt: Date.now(),
     updatedAt: Date.now()
   },
@@ -69,10 +69,16 @@ const INITIAL_NODES: Node[] = [
 ]
 
 export function useSkillTree() {
+  // ========== State ==========
   const nodes = ref<Node[]>([])
   const isLoading = ref(true)
+  const editingNodeId = ref<string | null>(null)
+  const editValues = ref<Record<string, string>>({})
+  const activeFileId = ref<string | null>(null)
 
-  // 将后端数据转换为 Node 格式
+  // ========== Helper Functions ==========
+  const generateId = () => Math.random().toString(36).substring(2, 11)
+
   const convertBackendDataToNodes = (children: any[], parentId: string | null = null): Node[] => {
     const result: Node[] = []
     const now = Date.now()
@@ -90,7 +96,6 @@ export function useSkillTree() {
       }
       result.push(node)
       
-      // 递归处理子目录
       if (isFolder && child.children) {
         const childNodes = convertBackendDataToNodes(child.children, child.path)
         result.push(...childNodes)
@@ -100,13 +105,29 @@ export function useSkillTree() {
     return result
   }
 
-  // 从后端加载节点数据
+  const getRootDirectories = (children: any[]): string[] => {
+    return children
+      .filter(child => child.type === 'directory')
+      .map(dir => dir.path)
+  }
+
+  const getChildrenIds = (parentId: string): string[] => {
+    const children = nodes.value.filter(n => n.parentId === parentId)
+    let ids = children.map(c => c.id)
+    for (const child of children) {
+      if (child.type === 'folder') {
+        ids = [...ids, ...getChildrenIds(child.id)]
+      }
+    }
+    return ids
+  }
+
+  // ========== Server Operations ==========
   const loadFromServer = async () => {
     try {
       const response = await request.get('/api/skills/tree') as unknown as SkillTreeResponse
       console.log('Loaded skills tree:', response)
       
-      // 转换后端数据为 Node 格式
       const convertedNodes = convertBackendDataToNodes(response.children)
       nodes.value = convertedNodes
       
@@ -117,8 +138,9 @@ export function useSkillTree() {
       }
     } catch (error) {
       console.error('Failed to load nodes:', error)
-      // 加载失败时使用本地默认数据
+      // 确保即使网络请求失败，也能显示初始数据
       nodes.value = INITIAL_NODES
+      console.log('Using initial nodes:', INITIAL_NODES)
       return {
         nodes: INITIAL_NODES,
         expandedFolders: ['root-folder-1', 'root-folder-2'],
@@ -129,32 +151,160 @@ export function useSkillTree() {
     }
   }
 
-  // 获取所有根目录（用于默认展开）
-  const getRootDirectories = (children: any[]): string[] => {
-    return children
-      .filter(child => child.type === 'directory')
-      .map(dir => dir.path)
-  }
-
-  // 加载文件内容
   const loadFileContent = async (fileId: string, fileName: string) => {
     try {
-      // TODO: 根据实际 API 调整，这里假设有一个获取文件详情的接口
-      // const response = await request.get(`/api/skills/file/${fileId}`)
-      // const fileNode = nodes.value.find(n => n.id === fileId)
-      // if (fileNode) {
-      //   fileNode.content = response.content || ''
-      // }
       console.log('Would load file content for:', fileName)
     } catch (error) {
       console.error('Failed to load file content:', error)
     }
   }
 
+  // ========== Business Logic Operations ==========
+  
+  /**
+   * 切换文件夹展开/收起状态
+   */
+  const toggleFolder = (expandedFolders: Set<string>, folderId: string, forceExpand?: boolean) => {
+    console.log('Toggling folder:', folderId)
+    if (forceExpand !== undefined) {
+      if (forceExpand) {
+        expandedFolders.add(folderId)
+      } else {
+        expandedFolders.delete(folderId)
+      }
+    } else {
+      if (expandedFolders.has(folderId)) {
+        expandedFolders.delete(folderId)
+      } else {
+        expandedFolders.add(folderId)
+      }
+    }
+  }
+
+  /**
+   * 创建新节点（文件或文件夹）
+   */
+  const createNode = (
+    type: NodeType, 
+    parentId: string | null,
+    expandedFolders: Set<string>
+  ) => {
+    const id = generateId()
+    const newNode: Node = {
+      id,
+      name: type === 'folder' ? 'New Folder' : 'Untitled.md',
+      type,
+      parentId,
+      content: type === 'file' ? '# Untitled\n\n' : '',
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }
+    
+    if (parentId) {
+      toggleFolder(expandedFolders, parentId, true)
+    }
+
+    nodes.value.push(newNode)
+    editingNodeId.value = id
+    editValues.value[id] = newNode.name
+    
+    if (type === 'file') {
+      activeFileId.value = id
+    }
+    
+    return newNode
+  }
+
+  /**
+   * 删除节点及其所有子节点
+   */
+  const deleteNode = (id: string, expandedFolders: Set<string>) => {
+    if (!window.confirm('Are you sure you want to delete this item?')) return
+    
+    const idsToDelete = [id, ...getChildrenIds(id)]
+    nodes.value = nodes.value.filter(n => !idsToDelete.includes(n.id))
+    
+    if (activeFileId.value && idsToDelete.includes(activeFileId.value)) {
+      activeFileId.value = null
+    }
+  }
+
+  /**
+   * 重命名节点
+   */
+  const renameNode = (nodeId: string, newName: string) => {
+    const node = nodes.value.find(n => n.id === nodeId)
+    if (node) {
+      node.name = newName || (node.type === 'folder' ? 'New Folder' : 'Untitled.md')
+      node.updatedAt = Date.now()
+    }
+    editingNodeId.value = null
+  }
+
+  /**
+   * 开始编辑模式
+   */
+  const startEditing = (nodeId: string) => {
+    editingNodeId.value = nodeId
+    if (!editValues.value[nodeId]) {
+      const node = nodes.value.find(n => n.id === nodeId)
+      if (node) {
+        editValues.value[nodeId] = node.name
+      }
+    }
+  }
+
+  /**
+   * 处理编辑时的键盘事件
+   */
+  const handleEditKeydown = (event: KeyboardEvent, nodeId: string) => {
+    if (event.key === 'Enter') {
+      renameNode(nodeId, editValues.value[nodeId])
+    } else if (event.key === 'Escape') {
+      editingNodeId.value = null
+      editValues.value[nodeId] = nodes.value.find(n => n.id === nodeId)?.name || ''
+    }
+  }
+
+  /**
+   * 处理编辑框失焦
+   */
+  const handleEditBlur = (nodeId: string) => {
+    renameNode(nodeId, editValues.value[nodeId])
+  }
+
+  /**
+   * 更新文件内容
+   */
+  const updateContent = (id: string, content: string) => {
+    const node = nodes.value.find(n => n.id === id)
+    if (node) {
+      node.content = content
+      node.updatedAt = Date.now()
+    }
+  }
+
+  // ========== Return ==========
   return {
+    // State
     nodes,
     isLoading,
+    editingNodeId,
+    editValues,
+    activeFileId,
+    
+    // Server Operations
     loadFromServer,
-    loadFileContent
+    loadFileContent,
+    
+    // Business Logic Operations
+    toggleFolder,
+    createNode,
+    deleteNode,
+    renameNode,
+    startEditing,
+    handleEditKeydown,
+    handleEditBlur,
+    updateContent
   }
 }
