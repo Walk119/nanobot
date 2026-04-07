@@ -14,6 +14,7 @@ const emit = defineEmits(['updateContent', 'createNode']);
 
 const vditorRef = ref<HTMLDivElement | null>(null);
 let vditorInstance: Vditor | null = null;
+const isVditorReady = ref(false);
 
 const initVditor = () => {
   if (!vditorRef.value || !props.activeFile) return;
@@ -23,6 +24,8 @@ const initVditor = () => {
     vditorInstance = null;
   }
 
+  isVditorReady.value = false;
+
   console.log("init vditor");
   vditorInstance = new Vditor(vditorRef.value, {
     height: '100%',
@@ -31,6 +34,12 @@ const initVditor = () => {
     value: props.content,
     outline: { enable: true, position: 'right' },
     toolbarConfig: { pin: true },
+    after: () => {
+      isVditorReady.value = true;
+      if (vditorInstance && props.content !== vditorInstance.getValue()) {
+        vditorInstance.setValue(props.content);
+      }
+    },
     input: (value) => {
         emit('updateContent', props.activeFile?.path, value);
     }
@@ -43,11 +52,12 @@ watch(() => props.activeFile?.path, (newPath) => {
   } else if (vditorInstance) {
     vditorInstance.destroy();
     vditorInstance = null;
+    isVditorReady.value = false;
   }
 });
 
 watch(() => props.content, (newContent) => {
-    if (vditorInstance && newContent !== vditorInstance.getValue()) {
+    if (vditorInstance && isVditorReady.value && newContent !== vditorInstance.getValue()) {
         vditorInstance.setValue(newContent);
     }
 });
