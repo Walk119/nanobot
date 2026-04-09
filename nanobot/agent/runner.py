@@ -79,7 +79,8 @@ class AgentRunner:
                 kwargs["max_tokens"] = spec.max_tokens
             if spec.reasoning_effort is not None:
                 kwargs["reasoning_effort"] = spec.reasoning_effort
-
+            print('1'*200)
+            print(kwargs)
             if hook.wants_streaming():
                 async def _stream(delta: str) -> None:
                     await hook.on_stream(context, delta)

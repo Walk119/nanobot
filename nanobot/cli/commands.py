@@ -388,10 +388,11 @@ def _make_provider(config: Config):
 
     model = config.agents.defaults.model
     provider_name = config.get_provider_name(model)
+    logger.info(f'Using provider: {provider_name}， model: {model}')
     p = config.get_provider(model)
     spec = find_by_name(provider_name) if provider_name else None
     backend = spec.backend if spec else "openai_compat"
-
+    logger.info(f'Using backend: {backend}')
     # --- validation ---
     if backend == "azure_openai":
         if not p or not p.api_key or not p.api_base:
@@ -726,10 +727,10 @@ def agent(
 
     config = _load_runtime_config(config, workspace)
     sync_workspace_templates(config.workspace_path)
-
+    logger.info(config)
     bus = MessageBus()
     provider = _make_provider(config)
-
+    logger.info(provider)
     # Preserve existing single-workspace installs, but keep custom workspaces clean.
     if is_default_workspace(config.workspace_path):
         _migrate_cron_store(config)

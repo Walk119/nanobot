@@ -2,8 +2,8 @@
   "agents": {
     "defaults": {
       "workspace": "./workspace",
-      "model": "qwen2.5-coder",
-      "provider": "custom",
+      "model": "deepseek-chat",
+      "provider": "deepseek",
       "maxTokens": 8192,
       "contextWindowTokens": 65536,
       "temperature": 0.1,
@@ -166,8 +166,8 @@
       "extraHeaders": null
     },
     "deepseek": {
-      "apiKey": "",
-      "apiBase": null,
+      "apiKey": "sk-eca03b37c4844d64b21b99b1de323e91",
+      "apiBase": "https://api.deepseek.com",
       "extraHeaders": null
     },
     "groq": {

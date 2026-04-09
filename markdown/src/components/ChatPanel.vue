@@ -6,6 +6,7 @@ const emit = defineEmits(['close', 'send']);
 const message = ref('');
 
 const sendMessage = () => {
+   console.log(message.value)
   if (message.value.trim()) {
     emit('send', message.value);
     message.value = '';
