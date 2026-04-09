@@ -67,7 +67,7 @@ onUnmounted(() => vditorInstance?.destroy());
 </script>
 
 <template>
-  <div class="flex-1 flex flex-col min-w-0 bg-white">
+  <div class="flex-1 flex flex-col min-w-0 bg-white relative">
     <!-- Header -->
     <div class="h-12 border-b border-slate-200 bg-white flex items-center px-4 justify-between shrink-0 shadow-sm z-10 relative">
       <div class="flex items-center gap-4">
@@ -76,6 +76,11 @@ onUnmounted(() => vditorInstance?.destroy());
           <FileText :size="16" class="text-blue-500" />
           <span class="text-sm font-medium text-slate-700">{{ activeFile.name }}</span>
         </div>
+      </div>
+
+      <!-- Slot for right-aligned header content -->
+      <div class="flex items-center gap-2">
+        <slot name="header-right"></slot>
       </div>
     </div>
 

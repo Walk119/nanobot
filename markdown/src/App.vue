@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { ref, onMounted, provide } from 'vue';
-import { PanelLeftClose, PanelLeft } from 'lucide-vue-next';
+import { ref, onMounted, provide, watch } from 'vue';
+import { PanelLeftClose, PanelLeft, MessageSquare } from 'lucide-vue-next';
 import { useFileTree } from './composables/useFileTree';
 import Sidebar from './components/Sidebar.vue';
 import Editor from './components/Editor.vue';
+import ChatPanel from './components/ChatPanel.vue';
+
+// 默认路径
+const currentSkillRoot = ref('nanobot/skills');
 
 const {
   nodes,
@@ -20,9 +24,10 @@ const {
   deleteNode,
   renameNode,
   updateContent
-} = useFileTree();
+} = useFileTree(currentSkillRoot.value);
 
 const isSidebarOpen = ref(true);
+const isChatOpen = ref(false);
 
 // 将操作通过 provide 提供给深层的 TreeNode 组件
 provide('tree-actions', {
@@ -38,12 +43,15 @@ provide('tree-actions', {
   setEditingNodeId: (id: string | null) => editingNodeId.value = id
 });
 
+const handleRefresh = async () => {
+  console.log("App.vue: Refreshing data for path:", currentSkillRoot.value);
+  await fetchNodes();
+};
+
 onMounted(async () => {
   console.log("App.vue: Initializing data fetch...");
   await fetchNodes();
   console.log("App.vue: Data fetched successfully");
-  console.log("Root Nodes:", rootNodes.value);
-  console.log("All Nodes:", nodes.value);
 });
 </script>
 
@@ -55,23 +63,45 @@ onMounted(async () => {
       v-if="isSidebarOpen"
       :rootNodes="rootNodes"
       :isLoading="isLoading"
+      v-model:skillRoot="currentSkillRoot"
+      @refresh="handleRefresh"
       @createNode="createNode"
     />
 
-    <!-- Editor -->
-    <Editor
-      :activeFile="activeFile"
-      :content="activeFileContent"
-      @updateContent="updateContent"
-      @createNode="createNode"
-    >
-      <template #sidebar-toggle>
-        <button @click="isSidebarOpen = !isSidebarOpen" class="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition-colors" title="Toggle Sidebar">
-          <PanelLeftClose v-if="isSidebarOpen" :size="18" />
-          <PanelLeft v-else :size="18" />
-        </button>
-      </template>
-    </Editor>
+    <!-- Editor and Chat Container -->
+    <div class="flex-1 flex min-w-0 overflow-hidden bg-white">
+      <Editor
+        :activeFile="activeFile"
+        :content="activeFileContent"
+        @updateContent="updateContent"
+        @createNode="createNode"
+      >
+        <template #sidebar-toggle>
+          <button @click="isSidebarOpen = !isSidebarOpen" class="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition-colors" title="Toggle Sidebar">
+            <PanelLeftClose v-if="isSidebarOpen" :size="18" />
+            <PanelLeft v-else :size="18" />
+          </button>
+        </template>
+
+        <template #header-right>
+          <button
+            v-if="activeFile"
+            @click="isChatOpen = !isChatOpen"
+            class="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+            :class="{ 'text-blue-600 bg-blue-50': isChatOpen }"
+            title="Open AI Chat"
+          >
+            <MessageSquare :size="20" />
+          </button>
+        </template>
+      </Editor>
+
+      <!-- Chat Panel -->
+      <ChatPanel
+        v-if="isChatOpen"
+        @close="isChatOpen = false"
+      />
+    </div>
   </div>
 </template>
 

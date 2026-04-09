@@ -1,25 +1,52 @@
 import type { Node } from './types';
-
-// 这里假设您的 API 基础路径，可以根据实际情况在 .env 中配置
+import {skillRoot} from '../store/settings'
 const BASE_URL = '/api';
+// let skillRoot = '';
+
+/**
+ * 辅助函数：构建带查询参数的 URL，自动包含 skill_root
+ */
+const getUrl = (path: string, params: Record<string, string> = {}) => {
+  // 使用当前 origin 构造 URL 对象
+  const url = new URL(window.location.origin + BASE_URL + path);
+   console.log(url)
+   console.log(skillRoot.value)
+  // 始终尝试添加 skill_root 参数
+  if (skillRoot) {
+    url.searchParams.append('skill_root', skillRoot.value);
+  }
+    console.log(url.toString())
+
+  // 添加传入的额外参数
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      url.searchParams.append(key, value);
+    }
+  });
+
+  return url.toString();
+};
 
 export const api = {
-  async getNodes(): Promise<Node[]> {
+  /**
+   * 设置全局使用的 skill_root 路径
+   */
 
-    const response = await fetch(`${BASE_URL}/skills/tree`);
-//     console.log(response.json())
+
+  async getNodes(): Promise<Node[]> {
+    const response = await fetch(getUrl('/skills/tree'));
     if (!response.ok) throw new Error('Failed to fetch nodes');
     return response.json();
   },
 
-  async fileContent(file_path): Promise<any>{
-      const response = await fetch(`${BASE_URL}/skills/file/raw?file_path=${file_path}`)
-//       console.log(response.json())
-      if (!response.ok) throw new Error('Failed to fetch file info');
-      return response.text();
+  async fileContent(file_path: string): Promise<string> {
+    const response = await fetch(getUrl('/skills/file/raw', { file_path }));
+    if (!response.ok) throw new Error('Failed to fetch file info');
+    return response.text();
   },
+
   async createNode(node: Partial<Node>): Promise<Node> {
-    const response = await fetch(`${BASE_URL}/nodes`, {
+    const response = await fetch(getUrl('/nodes'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(node),
@@ -29,7 +56,7 @@ export const api = {
   },
 
   async updateNode(id: string, updates: Partial<Node>): Promise<Node> {
-    const response = await fetch(`${BASE_URL}/nodes/${id}`, {
+    const response = await fetch(getUrl(`/nodes/${id}`), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates),
@@ -39,14 +66,14 @@ export const api = {
   },
 
   async deleteNode(id: string): Promise<void> {
-    const response = await fetch(`${BASE_URL}/nodes/${id}`, {
+    const response = await fetch(getUrl(`/nodes/${id}`), {
       method: 'DELETE',
     });
     if (!response.ok) throw new Error('Failed to delete node');
   },
 
   async updateContent(id: string, content: string): Promise<void> {
-    const response = await fetch(`${BASE_URL}/nodes/${id}/content`, {
+    const response = await fetch(getUrl(`/nodes/${id}/content`), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content }),

@@ -3,12 +3,13 @@ import { api } from '../api/client';
 import type { Node, NodeType } from '../api/types';
 
 export function useFileTree() {
+
   const nodes = ref<Node[]>([]);
   const activeFileId = ref<string | null>(null);
   const activeFileContent = ref<string>('');
   const expandedFolders = ref<Set<string>>(new Set());
   const editingNodeId = ref<string | null>(null);
-  const isLoading = ref(true);
+  const isLoading = ref(false);
 
   const activeFile = computed(() => {
     const findActiveFile = (nodeList: Node[]): Node | undefined => {
@@ -26,42 +27,50 @@ export function useFileTree() {
     return findActiveFile(nodes.value);
   });
 
-  const fetchNodes = async () => {
+  const fetchNodes = async (newRoot?: string) => {
+    if (newRoot) {
+        api.setConfig(newRoot);
+    }
+
     try {
       isLoading.value = true;
+      // nodes.value = []; // 清空当前列表
       const data = await api.getNodes();
       console.log("get nodes from server")
       
       // 直接使用嵌套结构
       nodes.value = Array.isArray(data) ? data : (data.children || []);
       
+      // 如果切换了目录，且当前文件不在新列表中，重置状态
+      if (newRoot && !activeFile.value) {
+          activeFileId.value = null;
+          activeFileContent.value = '';
+      }
+
       if (nodes.value.length > 0 && !activeFileId.value) {
         // 递归查找第一个文件
-        const findFirstFile = (nodeList: Node[]): Node | undefined => {
-          for (const node of nodeList) {
-            if (node.type === 'file') return node;
-            if (node.children && node.children.length > 0) {
-              const found = findFirstFile(node.children);
-              if (found) return found;
+        const findFirstFileInNested = (nodeList: Node[]): Node | undefined => {
+            for (const node of nodeList) {
+                if (node.type === 'file') return node;
+                if (node.children && node.children.length > 0) {
+                    const found = findFirstFileInNested(node.children);
+                    if (found) return found;
+                }
             }
-          }
-          return undefined;
+            return undefined;
         };
-        const firstFile = findFirstFile(nodes.value);
-        if (firstFile) activeFileId.value = firstFile.id;
+        const firstFile = findFirstFileInNested(nodes.value);
+        if (firstFile) activeFileId.value = firstFile.path;
       }
-      console.log(nodes.value)
-      console.log(activeFileId.value)
     } catch (error) {
       console.error('Failed to load nodes:', error);
+      nodes.value = [];
     } finally {
       isLoading.value = false;
     }
   };
 
   const toggleFolder = (folderId: string, forceExpand?: boolean) => {
-      console.log(folderId)
-      console.log(forceExpand)
     const next = new Set(expandedFolders.value);
     if (next.has(folderId) && !forceExpand) next.delete(folderId);
     else next.add(folderId);
@@ -110,7 +119,7 @@ export function useFileTree() {
       }
       
       editingNodeId.value = createdNode.id;
-      if (type === 'file') activeFileId.value = createdNode.id;
+      if (type === 'file') activeFileId.value = createdNode.path;
     } catch (error) {
       console.error('Failed to create node:', error);
     }
