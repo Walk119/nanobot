@@ -2,6 +2,7 @@
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query,Path, Depends
 from .service import SkillsService
+from .chat_service import ChatService
 import os
 from pathlib import Path
 
@@ -206,7 +207,44 @@ class SkillsAPI:
                 'size': file_node.size,
                 'extension': file_node.extension,
             }
-    
+
+        @self.router.post('/agent/chat')
+        async def agent_chat(
+                message: str,
+                session_id: str = Query("api:direct", description="Session ID"),
+                chat_service: ChatService = Depends(self.get_chat_service)
+        ):
+            """Interact with the agent directly via API.
+
+            Args:
+                message: Message to send to the agent
+                session_id: Session ID
+                chat_service: ChatService instance
+
+            Returns:
+                Agent response
+            """
+            try:
+                # Process message
+                response = await chat_service.process_message(message, session_id)
+
+                # Close the chat service
+                await chat_service.close()
+
+                return response
+
+            except Exception as e:
+                # Ensure we close the service even if there's an error
+                try:
+                    await chat_service.close()
+                except:
+                    pass
+
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Error processing agent request: {str(e)}"
+                )
+
     def get_router(self) -> APIRouter:
         """Get the FastAPI router instance.
         
