@@ -5,7 +5,7 @@ from nanobot.agent.loop import AgentLoop
 from nanobot.bus.queue import MessageBus
 from nanobot.cron.service import CronService
 from nanobot.cli.commands import _load_runtime_config, _make_provider, is_default_workspace, _migrate_cron_store
-
+from loguru import logger
 
 class ChatService:
     """Service for handling chat requests with the agent."""
@@ -17,6 +17,7 @@ class ChatService:
             config_path: Path to config file
             workspace: Path to workspace directory
         """
+        logger.info(f"generate chat service. config_path: {config_path}, workspace: {workspace}")
         self.config_path = config_path
         self.workspace = workspace
         self.agent_loop: Optional[AgentLoop] = None

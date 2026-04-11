@@ -1,0 +1,5 @@
+{
+  "workspace": "nanobot/cli/workspace",
+  "config": "nanobot/cli/workspace/config.json"
+
+}

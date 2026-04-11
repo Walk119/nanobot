@@ -23,7 +23,7 @@ async def test_glob_matches_recursively_and_skips_noise_dirs(tmp_path: Path) -> 
     (tmp_path / "src" / "app.py").write_text("print('ok')\n", encoding="utf-8")
     (tmp_path / "nested" / "util.py").write_text("print('ok')\n", encoding="utf-8")
     (tmp_path / "node_modules" / "skip.py").write_text("print('skip')\n", encoding="utf-8")
-
+    tmp_path = '/Users/mac/code/nanobot/nanobot/cli/workspace'
     tool = GlobTool(workspace=tmp_path, allowed_dir=tmp_path)
     result = await tool.execute(pattern="*.py", path=".")
 

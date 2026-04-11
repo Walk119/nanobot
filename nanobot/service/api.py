@@ -1,10 +1,11 @@
 """API layer for skills service - provides HTTP endpoints."""
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Query,Path, Depends
+from fastapi import APIRouter, HTTPException, Query,Path, Depends, Body
 from .service import SkillsService
 from .chat_service import ChatService
 import os
 from pathlib import Path
+from loguru import logger
 
 
 class SkillsAPI:
@@ -46,6 +47,40 @@ class SkillsAPI:
         else:
             target_root = self.default_skills_root
         return SkillsService(target_root)
+
+    def get_chat_service(self, config: Optional[str] = Query(None, description="Path to config file"),
+                         workspace: Optional[str] = Query(None, description="Workspace directory")):
+        """Dependency to get a ChatService instance.
+        
+        Args:
+            config: Path to config file
+            workspace: Path to workspace directory
+            
+        Returns:
+            ChatService instance
+        """
+        # If config or workspace is None, read from config.json
+        logger.info(f"generate chat service. config: {config}, workspace: {workspace}")
+        if config is None or workspace is None:
+            import json
+            import os
+
+            config_file = os.path.join(os.path.dirname(__file__), 'config.json')
+            logger.info(f"read config.json from {config_file}")
+            if os.path.exists(config_file):
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    config_data = json.load(f)
+                    if config is None and 'config' in config_data:
+                        config = config_data['config']
+                    if workspace is None and 'workspace' in config_data:
+                        workspace = config_data['workspace']
+        current_dir = Path(__file__).parent.parent.parent
+        if not Path(config).is_absolute():
+            config = Path(current_dir / config).resolve()
+        if not Path(workspace).is_absolute():
+            workspace = Path(current_dir / workspace).resolve()
+        logger.info(f"config_path: {config}, workspace: {workspace}")
+        return ChatService(config_path=config, workspace=workspace)
     
     def _register_routes(self):
         """Register all API routes."""
@@ -210,7 +245,7 @@ class SkillsAPI:
 
         @self.router.post('/agent/chat')
         async def agent_chat(
-                message: str,
+                message: str = Body(..., description="Message to send to the agent", embed=True),
                 session_id: str = Query("api:direct", description="Session ID"),
                 chat_service: ChatService = Depends(self.get_chat_service)
         ):
@@ -225,6 +260,7 @@ class SkillsAPI:
                 Agent response
             """
             try:
+                print('message', message)
                 # Process message
                 response = await chat_service.process_message(message, session_id)
 

@@ -263,8 +263,8 @@
     "web": {
       "proxy": null,
       "search": {
-        "provider": "brave",
-        "apiKey": "",
+        "provider": "tavily",
+        "apiKey": "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",
         "baseUrl": "",
         "maxResults": 5
       }

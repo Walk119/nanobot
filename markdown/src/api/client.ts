@@ -79,5 +79,15 @@ export const api = {
       body: JSON.stringify({ content }),
     });
     if (!response.ok) throw new Error('Failed to update content');
+  },
+
+  async chat(message: string, session_id?: string): Promise<{ content: string; metadata?: any }> {
+    const response = await fetch('http://127.0.0.1:8000/api/skills/agent/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, session_id }),
+    });
+    if (!response.ok) throw new Error('Failed to send chat message');
+    return response.json();
   }
 };

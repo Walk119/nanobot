@@ -1,0 +1,25 @@
+// src/api/chat.ts
+import axios from 'axios';
+
+const API_BASE_URL = 'http://127.0.0.1:8000/api/skills';
+
+export interface ChatResponse {
+  content: string;
+  metadata?: any;
+}
+
+export const chatApi = {
+  /**
+   * 发送消息到 Agent
+   * @param message 用户输入的文本
+   * @param sessionId 会话ID
+   */
+  async sendMessage(message: string, sessionId: string = 'api:direct'): Promise<ChatResponse> {
+    // 根据你的后端 Body(..., embed=True) 约定，发送 { message: "..." }
+    const response = await axios.post(`${API_BASE_URL}/agent/chat`, 
+      { message }, 
+      { params: { session_id: sessionId } }
+    );
+    return response.data;
+  }
+};

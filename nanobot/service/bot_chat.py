@@ -92,11 +92,21 @@ def create_standalone_app() -> 'FastAPI':
         # uvicorn nanobot.service.bot_chat:create_standalone_app --reload
     """
     from fastapi import FastAPI
+    from fastapi.middleware.cors import CORSMiddleware
     
     app = FastAPI(
         title="NanoBot Skills Service",
         description="API service for browsing and retrieving skills directory structure and content",
         version="1.0.0"
+    )
+    
+    # Add CORS middleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # Allow all origins for development
+        allow_credentials=True,
+        allow_methods=["*"],  # Allow all methods
+        allow_headers=["*"],  # Allow all headers
     )
     
     # Include skills router
