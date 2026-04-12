@@ -23,7 +23,8 @@ const {
   createNode,
   deleteNode,
   renameNode,
-  updateContent
+  updateContent,
+  moveNode
 } = useFileTree(currentSkillRoot.value);
 
 const isSidebarOpen = ref(true);
@@ -39,6 +40,7 @@ provide('tree-actions', {
   createNode,
   deleteNode,
   renameNode,
+  moveNode,
   setActiveFile: (id: string) => activeFileId.value = id,
   setEditingNodeId: (id: string | null) => editingNodeId.value = id
 });

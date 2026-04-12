@@ -14,7 +14,7 @@ export function useFileTree() {
   const activeFile = computed(() => {
     const findActiveFile = (nodeList: Node[]): Node | undefined => {
       for (const node of nodeList) {
-        if (node.path === activeFileId.value && (node.type === 'file' || node.type === 'directory')) {
+        if (node.path === activeFileId.value && (node.type === 'file' || node.type === 'directory' || node.type === 'folder')) {
           return node;
         }
         if (node.children && node.children.length > 0) {
@@ -28,16 +28,10 @@ export function useFileTree() {
   });
 
   const fetchNodes = async (newRoot?: string) => {
-    if (newRoot) {
-        api.setConfig(newRoot);
-    }
-
     try {
       isLoading.value = true;
-      // nodes.value = []; // 清空当前列表
       const data = await api.getNodes();
-      console.log("get nodes from server")
-      
+
       // 直接使用嵌套结构
       nodes.value = Array.isArray(data) ? data : (data.children || []);
       
@@ -48,7 +42,6 @@ export function useFileTree() {
       }
 
       if (nodes.value.length > 0 && !activeFileId.value) {
-        // 递归查找第一个文件
         const findFirstFileInNested = (nodeList: Node[]): Node | undefined => {
             for (const node of nodeList) {
                 if (node.type === 'file') return node;
@@ -77,68 +70,23 @@ export function useFileTree() {
     expandedFolders.value = next;
   };
 
-  // 递归查找并修改节点
-  const findAndModifyNode = (nodeList: Node[], path: string, modifier: (node: Node) => void): boolean => {
-    for (let i = 0; i < nodeList.length; i++) {
-      if (nodeList[i].path === path) {
-        modifier(nodeList[i]);
-        return true;
-      }
-      if (nodeList[i].children && nodeList[i].children.length > 0) {
-        if (findAndModifyNode(nodeList[i].children, path, modifier)) {
-          return true;
-        }
-      }
-    }
-    return false;
-  };
-
   const createNode = async (type: NodeType, parentId: string | null = null, e?: MouseEvent) => {
     if (e) e.stopPropagation();
-    try {
-      const newNodeData: Partial<Node> = {
-        name: type === 'folder' ? 'New Folder' : 'Untitled.md',
-        type,
-        parentId,
-        content: type === 'file' ? '# Untitled\n\n' : '',
-      };
+    const defaultName = type === 'folder' ? 'New Folder' : 'Untitled.md';
+    const content = type === 'file' ? '# Untitled\n\n' : '';
 
-      const createdNode = await api.createNode(newNodeData);
-      
-      // 添加到相应位置
+    try {
+      const newNode = await api.createNode({ name: defaultName, type, parentId, content });
+      await fetchNodes();
+      // 自动进入重命名模式
+      editingNodeId.value = newNode.path;
+      if (type === 'file') activeFileId.value = newNode.path;
       if (parentId) {
-        // 找到父节点并添加到 children
-        findAndModifyNode(nodes.value, parentId, (parentNode) => {
-          if (!parentNode.children) parentNode.children = [];
-          parentNode.children.push(createdNode);
-        });
-        toggleFolder(parentId, true);
-      } else {
-        // 添加到根节点
-        nodes.value.push(createdNode);
+          toggleFolder(parentId, true);
       }
-      
-      editingNodeId.value = createdNode.id;
-      if (type === 'file') activeFileId.value = createdNode.path;
     } catch (error) {
       console.error('Failed to create node:', error);
     }
-  };
-
-  // 递归查找并删除节点
-  const findAndDeleteNode = (nodeList: Node[], path: string): boolean => {
-    for (let i = 0; i < nodeList.length; i++) {
-      if (nodeList[i].path === path) {
-        nodeList.splice(i, 1);
-        return true;
-      }
-      if (nodeList[i].children && nodeList[i].children.length > 0) {
-        if (findAndDeleteNode(nodeList[i].children, path)) {
-          return true;
-        }
-      }
-    }
-    return false;
   };
 
   const deleteNode = async (path: string, e?: MouseEvent) => {
@@ -147,8 +95,7 @@ export function useFileTree() {
 
     try {
       await api.deleteNode(path);
-      // 从嵌套结构中删除节点
-      findAndDeleteNode(nodes.value, path);
+      await fetchNodes();
       if (activeFileId.value === path) activeFileId.value = null;
     } catch (error) {
       console.error('Failed to delete node:', error);
@@ -156,61 +103,77 @@ export function useFileTree() {
   };
 
   const renameNode = async (path: string, newName: string) => {
+    // 过滤掉没有变化的重命名
+    const oldName = path.split('/').pop();
+    if (!newName || newName === oldName) {
+        editingNodeId.value = null;
+        return;
+    }
+
     try {
-      const name = newName || (() => {
-        let node: Node | undefined;
-        findAndModifyNode(nodes.value, path, (n) => { node = n; });
-        return node?.type === 'folder' || node?.type === 'directory' ? 'New Folder' : 'Untitled.md';
-      })();
-      
-      const updatedNode = await api.updateNode(path, { name });
-      
-      // 更新节点名称
-      findAndModifyNode(nodes.value, path, (node) => {
-        node.name = updatedNode.name;
-      });
-      
+      const result = await api.updateNode(path, { name: newName });
+      await fetchNodes();
+
+      // 如果重命名的是当前活动文件，更新其 ID
+      if (activeFileId.value === path) {
+          activeFileId.value = result.path;
+      }
+
       editingNodeId.value = null;
     } catch (error) {
       console.error('Failed to rename node:', error);
+      // 可以在这里加个错误提示，或者保持编辑状态
+      editingNodeId.value = null;
     }
   };
 
+
   const updateContent = async (path: string, content: string) => {
     try {
-      // 更新本地内容
-      findAndModifyNode(nodes.value, path, (node) => {
-        node.content = content;
-        node.updatedAt = Date.now();
-      });
-      
-      await api.updateContent(path, content);
+      console.log('Update content for', path);
     } catch (error) {
       console.error('Failed to update content:', error);
     }
   };
+
   const fetchFileContent = async (path: string) => {
       try {
-          console.log(path);
-          const content = await api.fileContent(path);
-          return content;
+          return await api.fileContent(path);
     } catch (error) {
       console.error('Failed to fetch file content:', error);
       return '';
     }
   };
+
   watch(activeFileId, async(newPath) => {
-      console.log(newPath)
     if (newPath) {
         activeFileContent.value = await fetchFileContent(newPath);
     } else {
         activeFileContent.value = '';
     }
   });
-  const rootNodes = computed(() => nodes.value.sort((a, b) => {
+
+  const rootNodes = computed(() => [...nodes.value].sort((a, b) => {
     if (a.type !== b.type) return (a.type === 'folder' || a.type === 'directory') ? -1 : 1;
     return a.name.localeCompare(b.name);
   }));
+
+  const moveNode = async (sourcePath: string, targetParentPath: string) => {
+    const fileName = sourcePath.split('/').pop();
+    const destination = !targetParentPath ? fileName! : `${targetParentPath}/${fileName}`;
+
+    if (sourcePath === destination) return;
+
+    try {
+      await api.updateNode(sourcePath, { destination });
+      await fetchNodes();
+      if (activeFileId.value === sourcePath) {
+        activeFileId.value = destination;
+      }
+    } catch (error) {
+      console.error('Failed to move node:', error);
+    }
+  };
 
   return {
     nodes,
@@ -227,5 +190,8 @@ export function useFileTree() {
     deleteNode,
     renameNode,
     updateContent,
+    moveNode,
+    setEditingNodeId: (id: string | null) => editingNodeId.value = id,
+    setActiveFile: (path: string) => activeFileId.value = path,
   };
 }

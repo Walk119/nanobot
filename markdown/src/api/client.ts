@@ -81,31 +81,26 @@ export const api = {
     if (!response.ok) throw new Error('Failed to unregister project');
   },
 
-  /**
-   * 历史兼容接口 (Node CRUD)
-   */
-  async createNode(node: Partial<Node>): Promise<Node> {
+   async createNode(node: { name: string; type: string; parentId: string | null; content?: string }): Promise<Node> {
     const response = await fetch(getUrl('/nodes'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(node),
     });
-    if (!response.ok) throw new Error('Failed to create node');
     return response.json();
   },
 
-  async updateNode(id: string, updates: Partial<Node>): Promise<Node> {
-    const response = await fetch(getUrl(`/nodes/${id}`), {
+  async updateNode(path: string, updates: { name?: string; destination?: string }): Promise<any> {
+    const response = await fetch(getUrl(`/nodes/${path}`), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates),
     });
-    if (!response.ok) throw new Error('Failed to update node');
     return response.json();
   },
 
-  async deleteNode(id: string): Promise<void> {
-    const response = await fetch(getUrl(`/nodes/${id}`), {
+  async deleteNode(path: string): Promise<void> {
+    const response = await fetch(getUrl(`/nodes/${path}`), {
       method: 'DELETE',
     });
     if (!response.ok) throw new Error('Failed to delete node');

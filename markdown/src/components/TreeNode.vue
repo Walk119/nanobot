@@ -14,7 +14,7 @@ function cn(...inputs: ClassValue[]) {
 interface Node {
   id: string;
   name: string;
-  type: 'file' | 'folder';
+  type: 'file' | 'folder' | 'directory';
   content: string;
   children?: Node[];
 }
@@ -60,7 +60,7 @@ const handleBlur = () => {
 
 const childNodes = computed(() => {
   return (props.node.children || []).sort((a: Node, b: Node) => {
-    if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
+    if (a.type !== b.type) return (a.type === 'folder' || a.type === 'directory') ? -1 : 1;
     return a.name.localeCompare(b.name);
   });
 });
@@ -84,6 +84,24 @@ const handleClick = () => {
       )"
       :style="{ paddingLeft: (depth * 12 + 8) + 'px' }"
       @click="handleClick"
+      draggable="true"
+      @dragstart="(e) => {
+        e.dataTransfer.setData('text/plain', props.path);
+        e.dataTransfer.effectAllowed = 'move';
+      }"
+      @dragover="(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      }"
+      @drop="(e) => {
+        e.preventDefault();
+        const sourcePath = e.dataTransfer.getData('text/plain');
+        if (sourcePath !== props.path) {
+          // 如果目标是文件夹，移入该文件夹；如果是文件，移入该文件所在的父目录
+          const targetParent = isFolder.value ? props.path : props.path.substring(0, props.path.lastIndexOf('/'));
+          actions.moveNode(sourcePath, targetParent);
+        }
+      }"
     >
       <!-- Node Icon -->
       <div class="w-5 flex items-center justify-center mr-1.5 shrink-0">

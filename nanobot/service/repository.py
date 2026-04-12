@@ -232,3 +232,66 @@ class SkillsRepository:
             pass
         
         return sorted(skills)
+    
+    def create_file(self, file_path: str, content: str = "") -> bool:
+        """Create a file at the specified path.
+        
+        Args:
+            file_path: Relative path from skills root
+            content: Content to write to the file
+            
+        Returns:
+            True if file was created successfully, False otherwise
+        """
+        try:
+            full_path = self.skills_root / file_path
+            # Create parent directories if they don't exist
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            # Write content to file
+            full_path.write_text(content, encoding='utf-8')
+            logger.info(f"Created file: {full_path}")
+            return True
+        except (OSError, IOError) as e:
+            logger.error(f"Failed to create file {file_path}: {e}")
+            return False
+    
+    def create_directory(self, directory_path: str) -> bool:
+        """Create a directory at the specified path.
+        
+        Args:
+            directory_path: Relative path from skills root
+            
+        Returns:
+            True if directory was created successfully, False otherwise
+        """
+        try:
+            full_path = self.skills_root / directory_path
+            # Create directory and parent directories if they don't exist
+            full_path.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Created directory: {full_path}")
+            return True
+        except (OSError, IOError) as e:
+            logger.error(f"Failed to create directory {directory_path}: {e}")
+            return False
+
+    def move_node(self, source_path: str, destination_path: str) -> str:
+        """Move or rename a file or directory.
+
+        Args:
+            source_path: Current relative path
+            destination_path: Target relative path
+
+        Returns:
+            The new relative path
+        """
+        src = self.skills_root / source_path
+        dst = self.skills_root / destination_path
+
+        if not src.exists():
+            raise FileNotFoundError(f"Source path not found: {source_path}")
+
+        # Ensure parent of destination exists
+        dst.parent.mkdir(parents=True, exist_ok=True)
+
+        src.rename(dst)
+        return str(dst.relative_to(self.skills_root))

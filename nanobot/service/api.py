@@ -27,7 +27,7 @@ class SkillsAPI:
             skills_root = os.path.join(nanobot_dir, 'skills')
         
         self.default_skills_root = skills_root
-        self.router = APIRouter(prefix='/api/skills', tags=['skills'])
+        self.router = APIRouter(prefix='/api', tags=['skills'])
         self._register_routes()
 
     def get_service(self, skill_root: Optional[str] = Query(None, description="Custom skills root path")):
@@ -88,12 +88,12 @@ class SkillsAPI:
     def _register_routes(self):
         """Register all API routes."""
         
-        @self.router.get('')
+        @self.router.get('/skills')
         async def list_skills(service: SkillsService = Depends(self.get_service)):
             """List all available skills."""
             return {'skills': service.list_skills()}
         
-        @self.router.get('/tree')
+        @self.router.get('/skills/tree')
         async def get_skills_tree(
             include_content: bool = Query(False, description="Include file contents"),
             max_depth: int = Query(-1, description="Maximum depth (-1 for unlimited)"),
@@ -106,7 +106,7 @@ class SkillsAPI:
             except FileNotFoundError as e:
                 raise HTTPException(status_code=404, detail=str(e))
         
-        @self.router.get('/search')
+        @self.router.get('/skills/search')
         async def search_skills(
             q: str = Query(..., description="Search query"),
             service: SkillsService = Depends(self.get_service)
@@ -121,7 +121,7 @@ class SkillsAPI:
             results = service.search_skills(q)
             return {'results': results, 'count': len(results)}
         
-        @self.router.get('/file/raw')
+        @self.router.get('/skills/file/raw')
         async def get_raw_file(
             file_path: str = Query(..., description="Relative file path from skills root"),
             service: SkillsService = Depends(self.get_service)
@@ -138,7 +138,7 @@ class SkillsAPI:
             from fastapi.responses import PlainTextResponse
             return PlainTextResponse(content, media_type="text/plain")
 
-        @self.router.get('/{skill_name}')
+        @self.router.get('/skills/{skill_name}')
         async def get_skill_details(
             skill_name: str,
             service: SkillsService = Depends(self.get_service)
@@ -152,13 +152,13 @@ class SkillsAPI:
                 )
             return details
         
-        @self.router.get('/{skill_name}/info')
+        @self.router.get('/skills/{skill_name}/info')
         async def get_skill_info(
             skill_name: str,
             service: SkillsService = Depends(self.get_service)
         ):
             """Get basic information about a skill."""
-            info = service.get_skill_info(skill_name)
+            info = info = service.get_skill_info(skill_name)
             if info is None:
                 raise HTTPException(
                     status_code=404, 
@@ -173,7 +173,7 @@ class SkillsAPI:
                 'script_count': info.script_count,
             }
         
-        @self.router.get('/{skill_name}/file/{file_path:path}')
+        @self.router.get('/skills/{skill_name}/file/{file_path:path}')
         async def get_skill_file(
             skill_name: str, 
             file_path: str,
@@ -197,7 +197,7 @@ class SkillsAPI:
                 'extension': file_node.extension,
             }
 
-        @self.router.post('/agent/chat')
+        @self.router.post('/skills/agent/chat')
         async def agent_chat(
                 message: str = Body(..., description="Message to send to the agent", embed=True),
                 session_id: str = Query("api:direct", description="Session ID"),
@@ -218,6 +218,89 @@ class SkillsAPI:
                     status_code=500,
                     detail=f"Error processing agent request: {str(e)}"
                 )
+
+        @self.router.post('/nodes')
+        async def create_node(
+            name: str = Body(..., embed=True),
+            type: str = Body(..., embed=True),
+            parentId: Optional[str] = Body(None, embed=True),
+            content: Optional[str] = Body(None, embed=True),
+            service: SkillsService = Depends(self.get_service)
+        ):
+            """Create a new file or directory node."""
+            try:
+                node_type = 'folder' if type == 'folder' else 'file'
+                parent_path = parentId if parentId else ""
+                
+                # 构建相对路径
+                if parent_path:
+                    rel_path = f"{parent_path}/{name}"
+                else:
+                    rel_path = name
+                
+                if node_type == 'file':
+                    success = service.repository.create_file(rel_path, content or "")
+                else:
+                    success = service.repository.create_directory(rel_path)
+                
+                if not success:
+                    raise Exception(f"Failed to create {node_type}")
+
+                return {
+                    "path": rel_path,
+                    "name": name,
+                    "type": type,
+                    "content": content if node_type == 'file' else None
+                }
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+
+        @self.router.patch('/nodes/{path:path}')
+        async def update_node(
+            path: str,
+            name: Optional[str] = Body(None, embed=True),
+            destination: Optional[str] = Body(None, embed=True),
+            service: SkillsService = Depends(self.get_service)
+        ):
+            """Rename or move a node."""
+            try:
+                if destination:
+                    target_path = destination
+                elif name:
+                    p = Path(path)
+                    # 如果 p.parent 是 "."，说明文件在根目录
+                    parent_dir = str(p.parent)
+                    if parent_dir == ".":
+                        target_path = name
+                    else:
+                        target_path = f"{parent_dir}/{name}"
+                else:
+                    raise HTTPException(status_code=400, detail="Either name or destination must be provided")
+
+                new_path = service.repository.move_node(path, target_path)
+                return {"path": new_path}
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+
+        @self.router.delete('/nodes/{path:path}')
+        async def delete_node(
+            path: str,
+            service: SkillsService = Depends(self.get_service)
+        ):
+            """Delete a node."""
+            try:
+                full_path = service.skills_root / path
+                if not full_path.exists():
+                     raise HTTPException(status_code=404, detail="Node not found")
+                
+                if full_path.is_file():
+                    full_path.unlink()
+                else:
+                    import shutil
+                    shutil.rmtree(full_path)
+                return {"status": "success"}
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
 
     def get_router(self) -> APIRouter:
         """Get the FastAPI router instance."""

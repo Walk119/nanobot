@@ -244,3 +244,50 @@ class SkillsService:
                     })
         
         return results
+    
+    def create_file(self, file_path: str, content: str = "") -> bool:
+        """Create a file at the specified path.
+        
+        Args:
+            file_path: Relative path from skills root
+            content: Content to write to the file
+            
+        Returns:
+            True if file was created successfully, False otherwise
+        """
+        return self.repository.create_file(file_path, content)
+    
+    def create_directory(self, directory_path: str) -> bool:
+        """Create a directory at the specified path.
+        
+        Args:
+            directory_path: Relative path from skills root
+            
+        Returns:
+            True if directory was created successfully, False otherwise
+        """
+        return self.repository.create_directory(directory_path)
+    
+    def move_file(self, source_path: str, destination_path: str) -> bool:
+        """Move a file from source to destination.
+        
+        Args:
+            source_path: Relative path from skills root to the source file
+            destination_path: Relative path from skills root to the destination
+            
+        Returns:
+            True if file was moved successfully, False otherwise
+        """
+        return self.repository.move_file(source_path, destination_path)
+    
+    def move_directory(self, source_path: str, destination_path: str) -> bool:
+        """Move a directory from source to destination.
+        
+        Args:
+            source_path: Relative path from skills root to the source directory
+            destination_path: Relative path from skills root to the destination
+            
+        Returns:
+            True if directory was moved successfully, False otherwise
+        """
+        return self.repository.move_directory(source_path, destination_path)
