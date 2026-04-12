@@ -11,6 +11,17 @@ export interface Node {
   children?: Node[];
 }
 
+export interface Project {
+  name: string;
+  path: string;
+  description: string;
+  created_at?: string;
+}
+
+export interface ProjectsResponse {
+  projects: Project[];
+}
+
 export interface ApiClientConfig {
   baseUrl: string;
 }

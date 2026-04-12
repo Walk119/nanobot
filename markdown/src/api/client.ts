@@ -1,21 +1,17 @@
-import type { Node } from './types';
+import type { Node, Project, ProjectsResponse } from './types';
 import {skillRoot} from '../store/settings'
 const BASE_URL = '/api';
-// let skillRoot = '';
 
 /**
  * 辅助函数：构建带查询参数的 URL，自动包含 skill_root
  */
-const getUrl = (path: string, params: Record<string, string> = {}) => {
-  // 使用当前 origin 构造 URL 对象
+const getUrl = (path: string, params: Record<string, string | undefined> = {}) => {
   const url = new URL(window.location.origin + BASE_URL + path);
-   console.log(url)
-   console.log(skillRoot.value)
+
   // 始终尝试添加 skill_root 参数
   if (skillRoot) {
     url.searchParams.append('skill_root', skillRoot.value);
   }
-    console.log(url.toString())
 
   // 添加传入的额外参数
   Object.entries(params).forEach(([key, value]) => {
@@ -29,10 +25,8 @@ const getUrl = (path: string, params: Record<string, string> = {}) => {
 
 export const api = {
   /**
-   * 设置全局使用的 skill_root 路径
+   * 技能与节点相关接口
    */
-
-
   async getNodes(): Promise<Node[]> {
     const response = await fetch(getUrl('/skills/tree'));
     if (!response.ok) throw new Error('Failed to fetch nodes');
@@ -45,6 +39,51 @@ export const api = {
     return response.text();
   },
 
+  /**
+   * 项目管理接口 (基于 path)
+   */
+  async listProjects(): Promise<ProjectsResponse> {
+    const response = await fetch(getUrl('/projects'));
+    if (!response.ok) throw new Error('Failed to fetch projects');
+    return response.json();
+  },
+
+  async getProjectDetail(path: string): Promise<Project> {
+    const response = await fetch(getUrl('/projects/detail', { path }));
+    if (!response.ok) throw new Error('Failed to fetch project detail');
+    return response.json();
+  },
+
+  async registerProject(project: { path: string; name?: string; description?: string }): Promise<Project> {
+    const response = await fetch(getUrl('/projects'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(project),
+    });
+    if (!response.ok) throw new Error('Failed to register project');
+    return response.json();
+  },
+
+  async updateProject(path: string, updates: { name?: string; description?: string }): Promise<Project> {
+    const response = await fetch(getUrl('/projects', { path }), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    if (!response.ok) throw new Error('Failed to update project');
+    return response.json();
+  },
+
+  async unregisterProject(path: string): Promise<void> {
+    const response = await fetch(getUrl('/projects', { path }), {
+      method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to unregister project');
+  },
+
+  /**
+   * 历史兼容接口 (Node CRUD)
+   */
   async createNode(node: Partial<Node>): Promise<Node> {
     const response = await fetch(getUrl('/nodes'), {
       method: 'POST',
@@ -70,15 +109,6 @@ export const api = {
       method: 'DELETE',
     });
     if (!response.ok) throw new Error('Failed to delete node');
-  },
-
-  async updateContent(id: string, content: string): Promise<void> {
-    const response = await fetch(getUrl(`/nodes/${id}/content`), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content }),
-    });
-    if (!response.ok) throw new Error('Failed to update content');
   },
 
   async chat(message: string, session_id?: string): Promise<{ content: string; metadata?: any }> {

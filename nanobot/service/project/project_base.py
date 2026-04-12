@@ -3,7 +3,8 @@ from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..databases.repository import ProjectRepository
 from ..databases.models import ProjectModel
-
+from pathlib import Path
+from loguru import logger
 
 class ProjectService:
     """Business logic for project operations, identifying projects by their path."""
@@ -58,7 +59,9 @@ class ProjectService:
         if not name:
             import os
             name = os.path.basename(path.rstrip(os.sep))
-
+        if not Path(path).is_dir():
+            logger.info(f'insert into db and mkdir {path}')
+            Path(path).mkdir(parents=True, exist_ok=True)
         return await self.repository.create_project(
             path=path,
             name=name,

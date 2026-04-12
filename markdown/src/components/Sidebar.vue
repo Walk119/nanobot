@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { FileBox, FilePlus, FolderPlus, Folder, Settings2 } from 'lucide-vue-next';
+import { ref, onMounted } from 'vue';
+import { api } from '../api/client';
+import {
+  FileBox, FilePlus, FolderPlus, Folder,
+  Settings2, Plus, Trash2, ChevronDown
+} from 'lucide-vue-next';
 import TreeNode from './TreeNode.vue';
-import type { Node } from '../api/types';
+import type { Node, Project } from '../api/types';
 import { skillRoot } from '../store/settings'; // 引入全局状态
 
 const props = defineProps<{
@@ -13,10 +17,55 @@ const props = defineProps<{
 const emit = defineEmits(['createNode', 'refresh']);
 
 const handleRootChange = () => {
-  // 直接操作全局响应式变量
-  // 逻辑可以在这里处理，或者通过 watch 监听 skillRoot 的变化
   emit('refresh');
 };
+
+const projects = ref<Project[]>([]);
+const isMenuOpen = ref(false);
+
+const loadProjects = async () => {
+  try {
+    const res = await api.listProjects();
+    projects.value = res.projects;
+    console.log('Loaded projects:', projects.value);
+    // 如果当前没有选中的 root，默认选中第一个
+    if (!skillRoot.value && projects.value.length > 0) {
+      handleSelect(projects.value[0].path);
+    }
+  } catch (e) {
+    console.error('Failed to load projects', e);
+  }
+};
+
+const handleSelect = (path: string) => {
+  skillRoot.value = path;
+  isMenuOpen.value = false;
+  handleRootChange();
+};
+
+const addNewProject = async () => {
+  const path = prompt('Enter new skill root path:');
+  if (path) {
+    await api.registerProject({ path });
+    await loadProjects();
+    handleSelect(path);
+  }
+};
+
+const removeProject = async (path: string, e: Event) => {
+  e.stopPropagation();
+  if (confirm(`Remove project ${path}?`)) {
+    await api.unregisterProject(path);
+    await loadProjects();
+    // 如果删除的是当前选中的，切换到第一个或清空
+    if (skillRoot.value === path) {
+      skillRoot.value = projects.value[0]?.path || '';
+      handleRootChange();
+    }
+  }
+};
+
+onMounted(loadProjects);
 </script>
 
 <template>
@@ -24,33 +73,53 @@ const handleRootChange = () => {
     <!-- Header -->
     <div class="h-auto border-b border-slate-200 flex flex-col px-4 py-3 shrink-0 bg-slate-100/50 gap-3">
       <div class="flex items-center justify-between">
-        <button
-          @click="handleRootChange"
-          class="flex items-center gap-2 group hover:text-blue-600 transition-colors"
-        >
-          <Folder :size="18" class="text-blue-600 group-hover:scale-110 transition-transform" />
-          <span class="font-bold text-sm tracking-wide text-slate-800 uppercase">Skill Root</span>
-        </button>
+        <div class="flex items-center gap-2">
+          <Folder :size="18" class="text-blue-600" />
+          <span class="font-bold text-sm tracking-wide text-slate-800 uppercase">Projects</span>
+        </div>
         <div class="flex gap-1">
           <button @click="(e) => emit('createNode', 'file', null, e)" class="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-200 rounded-md transition-colors" title="New Root File"><FilePlus :size="16" /></button>
           <button @click="(e) => emit('createNode', 'folder', null, e)" class="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-200 rounded-md transition-colors" title="New Root Folder"><FolderPlus :size="16" /></button>
         </div>
       </div>
 
-      <!-- Path Input Field -->
-      <div class="relative group">
-        <div class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-500 transition-colors">
-          <Settings2 :size="14" />
+      <!-- Project Selector Dropdown -->
+      <div class="relative">
+        <div
+          class="flex items-center justify-between bg-white border border-slate-200 rounded-md py-1.5 pl-3 pr-2 cursor-pointer hover:border-blue-500 transition-all shadow-sm"
+          @click="isMenuOpen = !isMenuOpen"
+        >
+          <span class="text-xs font-mono text-slate-600 truncate flex-1">
+            {{ skillRoot || 'Select a project...' }}
+          </span>
+          <div class="flex items-center gap-1 border-l pl-2 ml-2">
+            <Plus :size="14" class="text-slate-400 hover:text-blue-500" @click.stop="addNewProject" />
+            <ChevronDown :size="14" class="text-slate-400" :class="{ 'rotate-180': isMenuOpen }" />
+          </div>
         </div>
-        <input
-          v-model="skillRoot"
-          type="text"
-          spellcheck="false"
-          placeholder="Path to skills..."
-          @keyup.enter="handleRootChange"
-          @blur="handleRootChange"
-          class="w-full bg-white border border-slate-200 rounded-md py-1.5 pl-8 pr-3 text-xs font-mono text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
-        />
+
+        <!-- Dropdown Menu Content -->
+        <div v-if="isMenuOpen" class="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg z-50 max-h-48 overflow-y-auto overflow-x-hidden">
+          <div
+            v-for="p in projects"
+            :key="p.path"
+            class="flex items-center justify-between px-3 py-2 hover:bg-slate-50 cursor-pointer group"
+            @click="handleSelect(p.path)"
+          >
+            <div class="flex flex-col min-w-0 pr-2">
+              <span class="text-xs font-bold text-slate-700 truncate">{{ p.name }}</span>
+              <span class="text-[10px] text-slate-400 truncate font-mono">{{ p.path }}</span>
+            </div>
+            <Trash2
+              :size="12"
+              class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+              @click.stop="removeProject(p.path, $event)"
+            />
+          </div>
+          <div v-if="projects.length === 0" class="p-3 text-center text-xs text-slate-400">
+            No projects found.
+          </div>
+        </div>
       </div>
     </div>
 
@@ -70,3 +139,16 @@ const handleRootChange = () => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+  border-radius: 10px;
+}
+</style>
