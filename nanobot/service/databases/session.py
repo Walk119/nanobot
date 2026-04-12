@@ -49,6 +49,6 @@ async def init_db():
 
 async def drop_db():
     """删除所有表"""
-    from .models import SkillModel  # 导入所有模型，确保它们被注册
+    from .models import SkillModel, ProjectModel  # 导入所有模型，确保它们被注册
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)

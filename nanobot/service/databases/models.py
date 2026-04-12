@@ -25,4 +25,4 @@ class ProjectModel(Base):
     name: Mapped[str] = mapped_column(String(100))
     description: Mapped[str] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    path: Mapped[str] = mapped_column(String(255))
+    path: Mapped[str] = mapped_column(String(255), unique=True)
