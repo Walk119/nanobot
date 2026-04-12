@@ -130,7 +130,11 @@ export function useFileTree() {
 
   const updateContent = async (path: string, content: string) => {
     try {
-      console.log('Update content for', path);
+      await api.saveFileContent(path, content);
+      // 同步本地内容，防止由于 Editor 外部修改导致的循环或状态不一致
+      if (activeFileId.value === path) {
+          activeFileContent.value = content;
+      }
     } catch (error) {
       console.error('Failed to update content:', error);
     }

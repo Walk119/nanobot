@@ -138,6 +138,24 @@ class SkillsAPI:
             from fastapi.responses import PlainTextResponse
             return PlainTextResponse(content, media_type="text/plain")
 
+        @self.router.put('/skills/file/raw')
+        async def update_raw_file(
+            file_path: str = Query(..., description="Relative file path from skills root"),
+            content: str = Body(..., embed=True, description="The new content for the file"),
+            service: SkillsService = Depends(self.get_service)
+        ):
+            """Update raw file content by file path."""
+            try:
+                success = service.update_file_content(file_path, content)
+                if not success:
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Failed to update file '{file_path}'"
+                    )
+                return {"status": "success", "file_path": file_path}
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+
         @self.router.get('/skills/{skill_name}')
         async def get_skill_details(
             skill_name: str,

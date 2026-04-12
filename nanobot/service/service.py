@@ -257,6 +257,18 @@ class SkillsService:
         """
         return self.repository.create_file(file_path, content)
     
+    def update_file_content(self, file_path: str, content: str) -> bool:
+        """Update the content of an existing file.
+        
+        Args:
+            file_path: Relative path from skills root
+            content: New content
+            
+        Returns:
+            True if updated successfully
+        """
+        return self.repository.create_file(file_path, content)
+
     def create_directory(self, directory_path: str) -> bool:
         """Create a directory at the specified path.
         

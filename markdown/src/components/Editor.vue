@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import Vditor from 'vditor';
 import 'vditor/dist/index.css';
-import { FileText, FileBox, Plus } from 'lucide-vue-next';
+import { FileText, FileBox, Plus, Check, Cloud } from 'lucide-vue-next';
 import type { Node } from '../api/types';
 
 const props = defineProps<{
@@ -15,6 +15,24 @@ const emit = defineEmits(['updateContent', 'createNode']);
 const vditorRef = ref<HTMLDivElement | null>(null);
 let vditorInstance: Vditor | null = null;
 const isVditorReady = ref(false);
+const saveStatus = ref<'saved' | 'saving' | 'error'>('saved');
+
+// 防抖保存逻辑
+let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+
+const triggerSave = (path: string, value: string) => {
+  saveStatus.value = 'saving';
+  if (saveTimeout) clearTimeout(saveTimeout);
+
+  saveTimeout = setTimeout(async () => {
+    try {
+      await emit('updateContent', path, value);
+      saveStatus.value = 'saved';
+    } catch (e) {
+      saveStatus.value = 'error';
+    }
+  }, 1000); // 1秒防抖
+};
 
 const initVditor = () => {
   if (!vditorRef.value || !props.activeFile) return;
@@ -41,7 +59,9 @@ const initVditor = () => {
       }
     },
     input: (value) => {
-        emit('updateContent', props.activeFile?.path, value);
+        if (props.activeFile) {
+            triggerSave(props.activeFile.path, value);
+        }
     }
   });
 };
@@ -63,7 +83,10 @@ watch(() => props.content, (newContent) => {
 });
 
 onMounted(initVditor);
-onUnmounted(() => vditorInstance?.destroy());
+onUnmounted(() => {
+    if (saveTimeout) clearTimeout(saveTimeout);
+    vditorInstance?.destroy();
+});
 </script>
 
 <template>
@@ -75,6 +98,21 @@ onUnmounted(() => vditorInstance?.destroy());
         <div v-if="activeFile" class="flex items-center gap-2 px-2 py-1 bg-blue-50/50 rounded-md border border-blue-100">
           <FileText :size="16" class="text-blue-500" />
           <span class="text-sm font-medium text-slate-700">{{ activeFile.name }}</span>
+
+          <!-- Save Status Indicator -->
+          <div class="flex items-center ml-2 border-l border-blue-100 pl-2">
+            <template v-if="saveStatus === 'saving'">
+              <Cloud :size="14" class="text-blue-400 animate-pulse" />
+              <span class="text-[10px] text-blue-400 ml-1">Saving...</span>
+            </template>
+            <template v-else-if="saveStatus === 'saved'">
+              <Check :size="14" class="text-emerald-500" />
+              <span class="text-[10px] text-emerald-500 ml-1">Saved</span>
+            </template>
+            <template v-else>
+              <span class="text-[10px] text-red-500 ml-1">Error</span>
+            </template>
+          </div>
         </div>
       </div>
 

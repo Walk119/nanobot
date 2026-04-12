@@ -1,5 +1,5 @@
 import type { Node, Project, ProjectsResponse } from './types';
-import {skillRoot} from '../store/settings'
+import { skillRoot } from '../store/settings'
 const BASE_URL = '/api';
 
 /**
@@ -37,6 +37,15 @@ export const api = {
     const response = await fetch(getUrl('/skills/file/raw', { file_path }));
     if (!response.ok) throw new Error('Failed to fetch file info');
     return response.text();
+  },
+
+  async saveFileContent(file_path: string, content: string): Promise<void> {
+    const response = await fetch(getUrl('/skills/file/raw', { file_path }), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    });
+    if (!response.ok) throw new Error('Failed to save file content');
   },
 
   /**
@@ -81,7 +90,7 @@ export const api = {
     if (!response.ok) throw new Error('Failed to unregister project');
   },
 
-   async createNode(node: { name: string; type: string; parentId: string | null; content?: string }): Promise<Node> {
+  async createNode(node: { name: string; type: string; parentId: string | null; content?: string }): Promise<Node> {
     const response = await fetch(getUrl('/nodes'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -90,7 +99,7 @@ export const api = {
     return response.json();
   },
 
-  async updateNode(path: string, updates: { name?: string; destination?: string }): Promise<any> {
+  async updateNode(path: string, updates: { name?: string; destination?: string; content?: string }): Promise<any> {
     const response = await fetch(getUrl(`/nodes/${path}`), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
