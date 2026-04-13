@@ -26,3 +26,10 @@ class ProjectModel(Base):
     description: Mapped[str] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     path: Mapped[str] = mapped_column(String(255), unique=True)
+
+class LLMPromptModel(Base):
+    __tablename__ = "llm_prompts"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True)
+    prompt: Mapped[str] = mapped_column(String(1024))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
