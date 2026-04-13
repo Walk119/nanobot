@@ -13,3 +13,4 @@ Run `npm run dev` to start the development server.
 * 对话框输出接口，选中部分插入到markdown
 * 设计多套提示词，展示提示词列表和内容，切换提示词
 * 同一个问题，多个提示词，并行执行agent loop
+* 设计一个圆桌讨论的多agent。人为干预的圆桌讨论
