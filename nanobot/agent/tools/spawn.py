@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 from nanobot.agent.tools.base import Tool, tool_parameters
 from nanobot.agent.tools.schema import StringSchema, tool_parameters_schema
-
+from loguru import logger
 if TYPE_CHECKING:
     from nanobot.agent.subagent import SubagentManager
 
@@ -47,6 +47,7 @@ class SpawnTool(Tool):
 
     async def execute(self, task: str, label: str | None = None, **kwargs: Any) -> str:
         """Spawn a subagent to execute the given task."""
+        logger.info(f"Spawning subagent for task: {task}")
         return await self._manager.spawn(
             task=task,
             label=label,

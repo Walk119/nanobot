@@ -14,12 +14,13 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from .service import SkillsService
-from .api import SkillsAPI, ProjectsAPI
+from .api import SkillsAPI, ProjectsAPI, PromptsAPI
 
 # Module-level instances (lazy initialization)
 _skills_service: Optional[SkillsService] = None
 _skills_api: Optional[SkillsAPI] = None
 _projects_api: Optional[ProjectsAPI] = None
+_prompts_api: Optional[PromptsAPI] = None
 
 
 def get_skills_service(skills_root: Optional[str] = None) -> SkillsService:
@@ -60,14 +61,24 @@ def get_projects_api() -> ProjectsAPI:
     return _projects_api
 
 
+def get_prompts_api(prompts_root: Optional[str] = None) -> PromptsAPI:
+    """Get or create the prompts API router."""
+    global _prompts_api
+    
+    if _prompts_api is None:
+        _prompts_api = PromptsAPI(prompts_root)
+    
+    return _prompts_api
+
+
 def create_standalone_app() -> 'FastAPI':
-    """Create a standalone FastAPI application with skills and projects endpoints."""
+    """Create a standalone FastAPI application with skills, projects and prompts endpoints."""
     from fastapi import FastAPI
     from fastapi.middleware.cors import CORSMiddleware
     
     app = FastAPI(
         title="NanoBot Service",
-        description="API service for browsing skills and managing projects",
+        description="API service for browsing skills, managing projects and prompts",
         version="1.1.0"
     )
     
@@ -88,6 +99,10 @@ def create_standalone_app() -> 'FastAPI':
     projects_api = get_projects_api()
     app.include_router(projects_api.get_router())
     
+    # Include prompts router
+    prompts_api = get_prompts_api()
+    app.include_router(prompts_api.get_router())
+    
     @app.get("/health")
     async def health_check():
         """Health check endpoint."""
@@ -101,7 +116,8 @@ def create_standalone_app() -> 'FastAPI':
             "version": "1.1.0",
             "endpoints": {
                 "skills": "/api/skills",
-                "projects": "/api/projects"
+                "projects": "/api/projects",
+                "prompts": "/api/prompts"
             }
         }
     

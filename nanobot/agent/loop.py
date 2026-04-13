@@ -330,6 +330,7 @@ class AgentLoop:
             if self._extra_hooks
             else loop_hook
         )
+        logger.info("Running agent loop...")
 
         async def _checkpoint(payload: dict[str, Any]) -> None:
             if session is None:
@@ -368,6 +369,7 @@ class AgentLoop:
 
         while self._running:
             try:
+                logger.debug("Waiting for inbound message...")
                 msg = await asyncio.wait_for(self.bus.consume_inbound(), timeout=1.0)
             except asyncio.TimeoutError:
                 continue
@@ -397,6 +399,7 @@ class AgentLoop:
 
     async def _dispatch(self, msg: InboundMessage) -> None:
         """Process a message: per-session serial, cross-session concurrent."""
+        logger.info("Dispatching message: {}", msg)
         if self._unified_session and not msg.session_key_override:
             msg = dataclasses.replace(msg, session_key_override=UNIFIED_SESSION_KEY)
         lock = self._session_locks.setdefault(msg.session_key, asyncio.Lock())
@@ -408,7 +411,7 @@ class AgentLoop:
                     # Split one answer into distinct stream segments.
                     stream_base_id = f"{msg.session_key}:{time.time_ns()}"
                     stream_segment = 0
-
+                    logger.info(f'wants stream: {stream_base_id}')
                     def _current_stream_id() -> str:
                         return f"{stream_base_id}:{stream_segment}"
 
@@ -434,7 +437,7 @@ class AgentLoop:
                             metadata=meta,
                         ))
                         stream_segment += 1
-
+                logger.info("Processing message...")
                 response = await self._process_message(
                     msg, on_stream=on_stream, on_stream_end=on_stream_end,
                 )
@@ -505,6 +508,7 @@ class AgentLoop:
                 current_message=msg.content, channel=channel, chat_id=chat_id,
                 current_role=current_role,
             )
+            logger.info("Running agent loop...")
             final_content, _, all_msgs = await self._run_agent_loop(
                 messages, session=session, channel=channel, chat_id=chat_id,
                 message_id=msg.metadata.get("message_id"),

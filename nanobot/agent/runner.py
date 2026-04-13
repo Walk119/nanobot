@@ -87,6 +87,7 @@ class AgentRunner:
         self.provider = provider
 
     async def run(self, spec: AgentRunSpec) -> AgentRunResult:
+        logger.info("Running agent loop...")
         hook = spec.hook or AgentHook()
         messages = list(spec.initial_messages)
         final_content: str | None = None
@@ -116,6 +117,7 @@ class AgentRunner:
             context = AgentHookContext(iteration=iteration, messages=messages)
             await hook.before_iteration(context)
             response = await self._request_model(spec, messages_for_model, hook, context)
+            logger.info(f"Received response: {response}")
             raw_usage = self._usage_dict(response.usage)
             context.response = response
             context.usage = dict(raw_usage)
@@ -123,6 +125,7 @@ class AgentRunner:
             self._accumulate_usage(usage, raw_usage)
 
             if response.has_tool_calls:
+                logger.info("has tool calls")
                 if hook.wants_streaming():
                     await hook.on_stream_end(context, resuming=True)
 
@@ -147,7 +150,7 @@ class AgentRunner:
                 )
 
                 await hook.before_execute_tools(context)
-
+                logger.info(f"Executing tools: {response.tool_calls}")
                 results, new_events, fatal_error = await self._execute_tools(
                     spec,
                     response.tool_calls,
@@ -353,6 +356,7 @@ class AgentRunner:
             messages,
             tools=spec.tools.get_definitions(),
         )
+        logger.info(f"Requesting model with kwargs: {kwargs}")
         if hook.wants_streaming():
             async def _stream(delta: str) -> None:
                 await hook.on_stream(context, delta)

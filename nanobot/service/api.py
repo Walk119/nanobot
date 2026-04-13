@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Query, Path, Depends, Body
 from .service import SkillsService
 from .chat_service import ChatService
 from .project.project_base import ProjectService
+from .prompts_service import PromptsService
 from .databases.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 import os
@@ -434,6 +435,64 @@ class ProjectsAPI:
                     detail=f"Project with path '{path}' not found"
                 )
             return {'message': f"Project with path '{path}' unregistered successfully"}
+
+    def get_router(self) -> APIRouter:
+        """Get the FastAPI router instance."""
+        return self.router
+
+
+class PromptsAPI:
+    """API router for prompts endpoints."""
+    
+    def __init__(self, prompts_root: Optional[str] = None):
+        """Initialize the API router."""
+        self.prompts_root = prompts_root
+        self.router = APIRouter(prefix='/api/prompts', tags=['prompts'])
+        self._register_routes()
+
+    def get_service(self) -> PromptsService:
+        """Dependency to get the PromptsService instance."""
+        return PromptsService(self.prompts_root)
+    
+    def _register_routes(self):
+        """Register all API routes."""
+        
+        @self.router.get('')
+        async def list_prompts(service: PromptsService = Depends(self.get_service)):
+            """List all available prompts."""
+            return {'prompts': service.list_prompts()}
+        
+        @self.router.get('/{name}')
+        async def get_prompt(
+            name: str,
+            service: PromptsService = Depends(self.get_service)
+        ):
+            """Get a specific prompt content."""
+            content = service.get_prompt(name)
+            if content is None:
+                raise HTTPException(status_code=404, detail=f"Prompt '{name}' not found")
+            return {'name': name, 'content': content}
+        
+        @self.router.post('')
+        async def save_prompt(
+            name: str = Body(..., embed=True),
+            content: str = Body(..., embed=True),
+            service: PromptsService = Depends(self.get_service)
+        ):
+            """Create or update a prompt."""
+            if service.save_prompt(name, content):
+                return {'status': 'success', 'name': name}
+            raise HTTPException(status_code=500, detail="Failed to save prompt")
+            
+        @self.router.delete('/{name}')
+        async def delete_prompt(
+            name: str,
+            service: PromptsService = Depends(self.get_service)
+        ):
+            """Delete a prompt."""
+            if service.delete_prompt(name):
+                return {'status': 'success'}
+            raise HTTPException(status_code=404, detail=f"Prompt '{name}' not found")
 
     def get_router(self) -> APIRouter:
         """Get the FastAPI router instance."""
