@@ -999,23 +999,6 @@ class AgentLoop:
 
     async def _dispatch(self, msg: InboundMessage) -> None:
         """Process a message: per-session serial, cross-session concurrent."""
-<<<<<<< HEAD
-        logger.info("Dispatching message: {}", msg)
-        if self._unified_session and not msg.session_key_override:
-            msg = dataclasses.replace(msg, session_key_override=UNIFIED_SESSION_KEY)
-        lock = self._session_locks.setdefault(msg.session_key, asyncio.Lock())
-        gate = self._concurrency_gate or nullcontext()
-        async with lock, gate:
-            try:
-                on_stream = on_stream_end = None
-                if msg.metadata.get("_wants_stream"):
-                    # Split one answer into distinct stream segments.
-                    stream_base_id = f"{msg.session_key}:{time.time_ns()}"
-                    stream_segment = 0
-                    logger.info(f'wants stream: {stream_base_id}')
-                    def _current_stream_id() -> str:
-                        return f"{stream_base_id}:{stream_segment}"
-=======
         session_key = self._effective_session_key(msg)
         if session_key != msg.session_key:
             msg = dataclasses.replace(msg, session_key_override=session_key)
@@ -1026,7 +1009,6 @@ class AgentLoop:
         # routed here (mid-turn injection) instead of spawning a new task.
         pending = asyncio.Queue(maxsize=20)
         self._pending_queues[session_key] = pending
->>>>>>> upstream/main
 
         try:
             async with lock, gate:
@@ -1082,16 +1064,6 @@ class AgentLoop:
                             channel=msg.channel, chat_id=msg.chat_id,
                             content="", metadata={**msg.metadata, "_turn_end": True},
                         ))
-<<<<<<< HEAD
-                        stream_segment += 1
-                logger.info("Processing message...")
-                response = await self._process_message(
-                    msg, on_stream=on_stream, on_stream_end=on_stream_end,
-                )
-                if response is not None:
-                    await self.bus.publish_outbound(response)
-                elif msg.channel == "cli":
-=======
                         if msg.metadata.get("webui") is True:
                             async def _generate_title_and_notify() -> None:
                                 generated = await maybe_generate_webui_title_after_turn(
@@ -1139,7 +1111,6 @@ class AgentLoop:
                     raise
                 except Exception:
                     logger.exception("Error processing message for session {}", session_key)
->>>>>>> upstream/main
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=msg.channel, chat_id=msg.chat_id,
                         content="Sorry, I encountered an error.",
@@ -1287,39 +1258,7 @@ class AgentLoop:
         pending_queue: asyncio.Queue | None = None,
     ) -> OutboundMessage | None:
         """Process a single inbound message and return the response."""
-<<<<<<< HEAD
-        # System messages: parse origin from chat_id ("channel:chat_id")
-        if msg.channel == "system":
-            channel, chat_id = (msg.chat_id.split(":", 1) if ":" in msg.chat_id
-                                else ("cli", msg.chat_id))
-            logger.info("Processing system message from {}", msg.sender_id)
-            key = f"{channel}:{chat_id}"
-            session = self.sessions.get_or_create(key)
-            if self._restore_runtime_checkpoint(session):
-                self.sessions.save(session)
-            await self.consolidator.maybe_consolidate_by_tokens(session)
-            self._set_tool_context(channel, chat_id, msg.metadata.get("message_id"))
-            history = session.get_history(max_messages=0)
-            current_role = "assistant" if msg.sender_id == "subagent" else "user"
-            messages = self.context.build_messages(
-                history=history,
-                current_message=msg.content, channel=channel, chat_id=chat_id,
-                current_role=current_role,
-            )
-            logger.info("Running agent loop...")
-            final_content, _, all_msgs = await self._run_agent_loop(
-                messages, session=session, channel=channel, chat_id=chat_id,
-                message_id=msg.metadata.get("message_id"),
-            )
-            self._save_turn(session, all_msgs, 1 + len(history))
-            self._clear_runtime_checkpoint(session)
-            self.sessions.save(session)
-            self._schedule_background(self.consolidator.maybe_consolidate_by_tokens(session))
-            return OutboundMessage(channel=channel, chat_id=chat_id,
-                                  content=final_content or "Background task completed.")
-=======
         self._refresh_provider_snapshot()
->>>>>>> upstream/main
 
         if msg.channel == "system":
             return await self._process_system_message(

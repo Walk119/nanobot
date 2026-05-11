@@ -56,9 +56,7 @@ class SpawnTool(Tool):
 
     async def execute(self, task: str, label: str | None = None, **kwargs: Any) -> str:
         """Spawn a subagent to execute the given task."""
-<<<<<<< HEAD
         logger.info(f"Spawning subagent for task: {task}")
-=======
         running = self._manager.get_running_count()
         limit = self._manager.max_concurrent_subagents
         if running >= limit:
@@ -67,7 +65,6 @@ class SpawnTool(Tool):
                 f"({running}/{limit} running). Wait for a running subagent "
                 f"to complete before spawning a new one."
             )
->>>>>>> upstream/main
         return await self._manager.spawn(
             task=task,
             label=label,

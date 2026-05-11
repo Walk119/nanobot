@@ -284,17 +284,12 @@ class AgentRunner:
             context.tool_calls = list(response.tool_calls)
             self._accumulate_usage(usage, raw_usage)
 
-<<<<<<< HEAD
-            if response.has_tool_calls:
-                logger.info("has tool calls")
-=======
             if response.should_execute_tools:
                 tool_calls = list(response.tool_calls)
                 ask_index = next((i for i, tc in enumerate(tool_calls) if tc.name == "ask_user"), None)
                 if ask_index is not None:
                     tool_calls = tool_calls[: ask_index + 1]
                 context.tool_calls = list(tool_calls)
->>>>>>> upstream/main
                 if hook.wants_streaming():
                     await hook.on_stream_end(context, resuming=True)
 
@@ -620,10 +615,6 @@ class AgentRunner:
             messages,
             tools=spec.tools.get_definitions(),
         )
-<<<<<<< HEAD
-        logger.info(f"Requesting model with kwargs: {kwargs}")
-        if hook.wants_streaming():
-=======
         wants_streaming = hook.wants_streaming()
         wants_progress_streaming = (
             not wants_streaming
@@ -633,7 +624,6 @@ class AgentRunner:
         )
 
         if wants_streaming:
->>>>>>> upstream/main
             async def _stream(delta: str) -> None:
                 if delta:
                     context.streamed_content = True
