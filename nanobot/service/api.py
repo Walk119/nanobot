@@ -462,37 +462,37 @@ class PromptsAPI:
             """List all available prompts."""
             return {'prompts': service.list_prompts()}
         
-        @self.router.get('/{name}')
+        @self.router.get('/{path:path}')
         async def get_prompt(
-            name: str,
+            path: str,
             service: PromptsService = Depends(self.get_service)
         ):
             """Get a specific prompt content."""
-            content = service.get_prompt(name)
-            if content is None:
-                raise HTTPException(status_code=404, detail=f"Prompt '{name}' not found")
-            return {'name': name, 'content': content}
+            info = service.get_prompt(path)
+            if info is None:
+                raise HTTPException(status_code=404, detail=f"Prompt '{path}' not found")
+            return info
         
         @self.router.post('')
         async def save_prompt(
-            name: str = Body(..., embed=True),
+            path: str = Body(..., embed=True),
             content: str = Body(..., embed=True),
             service: PromptsService = Depends(self.get_service)
         ):
             """Create or update a prompt."""
-            if service.save_prompt(name, content):
-                return {'status': 'success', 'name': name}
+            if service.save_prompt(path, content):
+                return {'status': 'success', 'path': path}
             raise HTTPException(status_code=500, detail="Failed to save prompt")
             
-        @self.router.delete('/{name}')
+        @self.router.delete('/{path:path}')
         async def delete_prompt(
-            name: str,
+            path: str,
             service: PromptsService = Depends(self.get_service)
         ):
             """Delete a prompt."""
-            if service.delete_prompt(name):
+            if service.delete_prompt(path):
                 return {'status': 'success'}
-            raise HTTPException(status_code=404, detail=f"Prompt '{name}' not found")
+            raise HTTPException(status_code=404, detail=f"Prompt '{path}' not found")
 
     def get_router(self) -> APIRouter:
         """Get the FastAPI router instance."""

@@ -2,6 +2,7 @@
 from pathlib import Path
 from typing import List, Optional, Dict
 import os
+import re
 
 
 class PromptsService:
@@ -21,11 +22,20 @@ class PromptsService:
         self.prompts_root = Path(prompts_root)
         self.prompts_root.mkdir(parents=True, exist_ok=True)
     
+    def _extract_name(self, content: str, default_name: str) -> str:
+        """Extract the first markdown heading as name, or fallback to default."""
+        for line in content.splitlines():
+            line = line.strip()
+            if line.startswith('#'):
+                # Handle both '# Title' and '### Title'
+                return line.lstrip('#').strip()
+        return default_name
+
     def list_prompts(self) -> List[Dict[str, str]]:
         """List all available prompts (markdown files).
         
         Returns:
-            List of dictionaries containing prompt name and content.
+            List of dictionaries containing prompt name, path and content.
         """
         prompts = []
         for file in self.prompts_root.glob("*.md"):
@@ -33,60 +43,71 @@ class PromptsService:
                 try:
                     content = file.read_text(encoding='utf-8')
                     prompts.append({
-                        "name": file.stem,
+                        "name": self._extract_name(content, file.stem),
+                        "path": file.name,
                         "content": content
                     })
                 except Exception:
                     continue
         return sorted(prompts, key=lambda x: x['name'])
     
-    def get_prompt(self, name: str) -> Optional[str]:
-        """Get the content of a specific prompt.
+    def get_prompt(self, filename: str) -> Optional[Dict[str, str]]:
+        """Get a specific prompt info.
         
         Args:
-            name: Name of the prompt (without .md extension)
+            filename: The filename (e.g., 'midwife.md')
             
         Returns:
-            Prompt content or None if not found
+            Prompt info or None if not found
         """
-        file_path = self.prompts_root / f"{name}.md"
+        file_path = self.prompts_root / filename
         if file_path.exists() and file_path.is_file():
             try:
-                return file_path.read_text(encoding='utf-8')
+                content = file_path.read_text(encoding='utf-8')
+                return {
+                    "name": self._extract_name(content, file_path.stem),
+                    "path": file_path.name,
+                    "content": content
+                }
             except Exception:
                 return None
         return None
     
-    def save_prompt(self, name: str, content: str) -> bool:
+    def save_prompt(self, filename: str, content: str) -> bool:
         """Create or update a prompt.
         
         Args:
-            name: Name of the prompt
+            filename: The filename (e.g., 'midwife.md')
             content: Content of the prompt
             
         Returns:
             True if successful
         """
         try:
-            # Ensure name is safe (no path traversal)
-            safe_name = Path(name).stem
-            file_path = self.prompts_root / f"{safe_name}.md"
+            # Basic validation to ensure it's just a filename
+            if os.path.sep in filename or (os.path.altsep and os.path.altsep in filename):
+                filename = os.path.basename(filename)
+                
+            if not filename.endswith('.md'):
+                filename += '.md'
+                
+            file_path = self.prompts_root / filename
             file_path.write_text(content, encoding='utf-8')
             return True
         except Exception:
             return False
             
-    def delete_prompt(self, name: str) -> bool:
+    def delete_prompt(self, filename: str) -> bool:
         """Delete a prompt.
         
         Args:
-            name: Name of the prompt
+            filename: The filename (e.g., 'midwife.md')
             
         Returns:
             True if deleted, False if not found or error
         """
         try:
-            file_path = self.prompts_root / f"{name}.md"
+            file_path = self.prompts_root / filename
             if file_path.exists() and file_path.is_file():
                 file_path.unlink()
                 return True
