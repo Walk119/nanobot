@@ -14,19 +14,27 @@ from rich.live import Live
 from rich.markdown import Markdown
 from rich.text import Text
 
-from nanobot import __logo__
-
 
 def _make_console() -> Console:
-    return Console(file=sys.stdout, force_terminal=True)
+    """Create a Console that emits plain text when stdout is not a TTY.
+
+    Rich's spinner, Live render, and cursor-visibility escape codes all
+    key off ``Console.is_terminal``. Forcing ``force_terminal=True`` overrode
+    the ``isatty()`` check and caused control sequences (``\\x1b[?25l``,
+    braille spinner frames) to pollute programmatic consumers such as
+    ``docker exec -i`` or pipes, even with ``NO_COLOR`` or ``TERM=dumb``.
+    Deferring to ``isatty()`` keeps Rich output in interactive terminals
+    and plain text everywhere else (#3265).
+    """
+    return Console(file=sys.stdout, force_terminal=sys.stdout.isatty())
 
 
 class ThinkingSpinner:
-    """Spinner that shows 'nanobot is thinking...' with pause support."""
+    """Spinner that shows '<bot_name> is thinking...' with pause support."""
 
-    def __init__(self, console: Console | None = None):
+    def __init__(self, console: Console | None = None, bot_name: str = "nanobot"):
         c = console or _make_console()
-        self._spinner = c.status("[dim]nanobot is thinking...[/dim]", spinner="dots")
+        self._spinner = c.status(f"[dim]{bot_name} is thinking...[/dim]", spinner="dots")
         self._active = False
 
     def __enter__(self):
@@ -66,9 +74,17 @@ class StreamRenderer:
       on_end -> Live stops (content stays on screen)
     """
 
-    def __init__(self, render_markdown: bool = True, show_spinner: bool = True):
+    def __init__(
+        self,
+        render_markdown: bool = True,
+        show_spinner: bool = True,
+        bot_name: str = "nanobot",
+        bot_icon: str = "🐈",
+    ):
         self._md = render_markdown
         self._show_spinner = show_spinner
+        self._bot_name = bot_name
+        self._bot_icon = bot_icon
         self._buf = ""
         self._live: Live | None = None
         self._t = 0.0
@@ -81,7 +97,7 @@ class StreamRenderer:
 
     def _start_spinner(self) -> None:
         if self._show_spinner:
-            self._spinner = ThinkingSpinner()
+            self._spinner = ThinkingSpinner(bot_name=self._bot_name)
             self._spinner.__enter__()
 
     def _stop_spinner(self) -> None:
@@ -98,11 +114,12 @@ class StreamRenderer:
             self._stop_spinner()
             c = _make_console()
             c.print()
-            c.print(f"[cyan]{__logo__} nanobot[/cyan]")
+            header = f"{self._bot_icon} {self._bot_name}" if self._bot_icon else self._bot_name
+            c.print(f"[cyan]{header}[/cyan]")
             self._live = Live(self._render(), console=c, auto_refresh=False)
             self._live.start()
         now = time.monotonic()
-        if "\n" in delta or (now - self._t) > 0.05:
+        if (now - self._t) > 0.15:
             self._live.update(self._render())
             self._live.refresh()
             self._t = now
@@ -123,6 +140,13 @@ class StreamRenderer:
     def stop_for_input(self) -> None:
         """Stop spinner before user input to avoid prompt_toolkit conflicts."""
         self._stop_spinner()
+
+    def pause(self):
+        """Context manager: pause spinner for external output. No-op once streaming has started."""
+        from contextlib import nullcontext
+        if self._spinner:
+            return self._spinner.pause()
+        return nullcontext()
 
     async def close(self) -> None:
         """Stop spinner/live without rendering a final streamed round."""
