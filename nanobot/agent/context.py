@@ -17,6 +17,7 @@ from nanobot.utils.helpers import (
     truncate_text,
 )
 from nanobot.utils.prompt_templates import render_template
+from nanobot.utils.logger import logger
 
 
 class ContextBuilder:
@@ -42,26 +43,31 @@ class ContextBuilder:
     ) -> str:
         """Build the system prompt from identity, bootstrap files, memory, and skills."""
         parts = [self._get_identity(channel=channel)]
-
+        logger.info(f"Building system prompt for channel {channel}")
         bootstrap = self._load_bootstrap_files()
+        logger.info(f"Loaded bootstrap files: {bootstrap}")
         if bootstrap:
             parts.append(bootstrap)
 
         memory = self.memory.get_memory_context()
+        logger.info(f"Loaded memory: {memory}")
         if memory and not self._is_template_content(self.memory.read_memory(), "memory/MEMORY.md"):
             parts.append(f"# Memory\n\n{memory}")
 
         always_skills = self.skills.get_always_skills()
+        logger.info(f"Loaded always skills: {always_skills}")
         if always_skills:
             always_content = self.skills.load_skills_for_context(always_skills)
             if always_content:
                 parts.append(f"# Active Skills\n\n{always_content}")
 
         skills_summary = self.skills.build_skills_summary(exclude=set(always_skills))
+        logger.info(f"Built skills summary: {skills_summary}")
         if skills_summary:
             parts.append(render_template("agent/skills_section.md", skills_summary=skills_summary))
 
         entries = self.memory.read_unprocessed_history(since_cursor=self.memory.get_last_dream_cursor())
+        logger.info(f"Loaded unprocessed history: {entries}")
         if entries:
             capped = entries[-self._MAX_RECENT_HISTORY:]
             history_text = "\n".join(
@@ -72,6 +78,7 @@ class ContextBuilder:
 
         if session_summary:
             parts.append(f"[Archived Context Summary]\n\n{session_summary}")
+        logger.info(parts)
 
         return "\n\n---\n\n".join(parts)
 

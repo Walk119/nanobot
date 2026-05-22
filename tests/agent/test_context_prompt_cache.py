@@ -8,8 +8,10 @@ from importlib.resources import files as pkg_files
 from pathlib import Path
 import datetime as datetime_module
 
-from nanobot.agent.context import ContextBuilder
+from fastapi import logger
 
+from nanobot.agent.context import ContextBuilder
+from nanobot.utils.logger import logger
 
 class _FakeDatetime(real_datetime):
     current = real_datetime(2026, 2, 24, 13, 59)
@@ -49,11 +51,12 @@ def test_system_prompt_stays_stable_when_clock_changes(tmp_path, monkeypatch) ->
 
 
 def test_system_prompt_reflects_current_dream_memory_contract(tmp_path) -> None:
-    workspace = _make_workspace(tmp_path)
+    workspace = Path("D:\\work\\code\\nanobot\\nanobot\\cli\\workspace") #_make_workspace(tmp_path)
+    logger.info(f"Workspace: {workspace}")
     builder = ContextBuilder(workspace)
 
     prompt = builder.build_system_prompt()
-
+    logger.info(f"Built system prompt: {prompt}")
     assert "memory/history.jsonl" in prompt
     assert "automatically managed by Dream" in prompt
     assert "do not edit directly" in prompt

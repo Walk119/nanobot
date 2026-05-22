@@ -4,7 +4,7 @@ import asyncio
 from nanobot.agent.loop import AgentLoop
 from nanobot.bus.queue import MessageBus
 from nanobot.cron.service import CronService
-from nanobot.cli.commands import _load_runtime_config, _make_provider, is_default_workspace, _migrate_cron_store
+from nanobot.cli.commands import _load_runtime_config, is_default_workspace, _migrate_cron_store
 from loguru import logger
 
 class ChatService:
@@ -29,8 +29,7 @@ class ChatService:
         
         # Create necessary services
         bus = MessageBus()
-        provider = _make_provider(runtime_config)
-        
+
         # Migrate cron store if needed
         if is_default_workspace(runtime_config.workspace_path):
             _migrate_cron_store(runtime_config)
@@ -40,25 +39,29 @@ class ChatService:
         cron = CronService(cron_store_path)
         
         # Initialize agent loop
-        self.agent_loop = AgentLoop(
-            bus=bus,
-            provider=provider,
-            workspace=runtime_config.workspace_path,
-            model=runtime_config.agents.defaults.model,
-            max_iterations=runtime_config.agents.defaults.max_tool_iterations,
-            context_window_tokens=runtime_config.agents.defaults.context_window_tokens,
-            web_config=runtime_config.tools.web,
-            context_block_limit=runtime_config.agents.defaults.context_block_limit,
-            max_tool_result_chars=runtime_config.agents.defaults.max_tool_result_chars,
-            provider_retry_mode=runtime_config.agents.defaults.provider_retry_mode,
-            exec_config=runtime_config.tools.exec,
+        self.agent_loop = AgentLoop.from_config(
+            runtime_config, bus,
             cron_service=cron,
-            restrict_to_workspace=runtime_config.tools.restrict_to_workspace,
-            mcp_servers=runtime_config.tools.mcp_servers,
-            channels_config=runtime_config.channels,
-            timezone=runtime_config.agents.defaults.timezone,
-            unified_session=runtime_config.agents.defaults.unified_session,
         )
+        # self.agent_loop = AgentLoop(
+        #     bus=bus,
+        #     provider=provider,
+        #     workspace=runtime_config.workspace_path,
+        #     model=runtime_config.agents.defaults.model,
+        #     max_iterations=runtime_config.agents.defaults.max_tool_iterations,
+        #     context_window_tokens=runtime_config.agents.defaults.context_window_tokens,
+        #     web_config=runtime_config.tools.web,
+        #     context_block_limit=runtime_config.agents.defaults.context_block_limit,
+        #     max_tool_result_chars=runtime_config.agents.defaults.max_tool_result_chars,
+        #     provider_retry_mode=runtime_config.agents.defaults.provider_retry_mode,
+        #     exec_config=runtime_config.tools.exec,
+        #     cron_service=cron,
+        #     restrict_to_workspace=runtime_config.tools.restrict_to_workspace,
+        #     mcp_servers=runtime_config.tools.mcp_servers,
+        #     channels_config=runtime_config.channels,
+        #     timezone=runtime_config.agents.defaults.timezone,
+        #     unified_session=runtime_config.agents.defaults.unified_session,
+        # )
     
     async def process_message(self, message: str, session_id: str) -> Dict[str, Any]:
         """Process a chat message.

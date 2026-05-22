@@ -1000,6 +1000,7 @@ class AgentLoop:
     async def _dispatch(self, msg: InboundMessage) -> None:
         """Process a message: per-session serial, cross-session concurrent."""
         session_key = self._effective_session_key(msg)
+        logger.info(session_key)
         if session_key != msg.session_key:
             msg = dataclasses.replace(msg, session_key_override=session_key)
         lock = self._session_locks.setdefault(session_key, asyncio.Lock())
@@ -1009,7 +1010,7 @@ class AgentLoop:
         # routed here (mid-turn injection) instead of spawning a new task.
         pending = asyncio.Queue(maxsize=20)
         self._pending_queues[session_key] = pending
-
+        logger.info(msg)
         try:
             async with lock, gate:
                 try:
@@ -1655,6 +1656,7 @@ class AgentLoop:
         from datetime import datetime
 
         checkpoint = session.metadata.get(self._RUNTIME_CHECKPOINT_KEY)
+        logger.info(checkpoint)
         if not isinstance(checkpoint, dict):
             return False
 
@@ -1667,11 +1669,13 @@ class AgentLoop:
             restored = dict(assistant_message)
             restored.setdefault("timestamp", datetime.now().isoformat())
             restored_messages.append(restored)
+        logger.info(restored_messages)
         for message in completed_tool_results:
             if isinstance(message, dict):
                 restored = dict(message)
                 restored.setdefault("timestamp", datetime.now().isoformat())
                 restored_messages.append(restored)
+        logger.info(restored_messages)
         for tool_call in pending_tool_calls:
             if not isinstance(tool_call, dict):
                 continue
@@ -1686,9 +1690,10 @@ class AgentLoop:
                     "timestamp": datetime.now().isoformat(),
                 }
             )
-
+        logger.info(restored_messages)
         overlap = 0
         max_overlap = min(len(session.messages), len(restored_messages))
+        logger.info(max_overlap)
         for size in range(max_overlap, 0, -1):
             existing = session.messages[-size:]
             restored = restored_messages[:size]
@@ -1698,8 +1703,10 @@ class AgentLoop:
             ):
                 overlap = size
                 break
+        logger.info(restored_messages)
+        logger.info(overlap)
         session.messages.extend(restored_messages[overlap:])
-
+        logger.info(session)
         self._clear_pending_user_turn(session)
         self._clear_runtime_checkpoint(session)
         return True
