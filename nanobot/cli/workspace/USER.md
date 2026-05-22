@@ -1,45 +1,59 @@
-# User Profile
+# 用户画像
 
-Information about the user to help personalize interactions.
+## 基本信息
 
-## Basic Information
+- **称呼**: Light
+- **时区**: UTC+8
+- **语言**: 中文
 
-- **Name**: Light
-- **Timezone**: UTC+8
-- **Language**: zh
+## 创作者身份
 
-## Preferences
+- **身份**: 小说作者
+- **创作类型**: 短篇小说、中篇连载
+- **叙事偏好**: 接地气的现实主义风格，多人物对话驱动
+- **题材倾向**: 都市、日常、人情世故
+- **格式偏好**: 散文小说为主，可适配短剧剧本格式
 
-### Communication Style
+## 创作习惯
 
-- [ ]  Casual
-- [X]  Professional
-- [X]  Technical
+- 喜欢从诗歌或片段灵感出发，发展成完整故事
+- 重视角色对话的自然感与辨识度
+- 偏好融入现实事件增强故事真实感
+- 习惯先规划大纲再逐步展开章节
+- 修改时注重逻辑链的完整性
 
-### Response Length
+## 沟通偏好
 
-- [ ]  Brief and concise
-- [ ]  Detailed explanations
-- [X]  Adaptive based on question
+### 交流风格
 
-### Technical Level
+- [X] 创作讨论时深入细致
+- [X] 技术性问题简洁直接
+- [ ] 闲聊为主
 
-- [ ]  Beginner
-- [X]  Intermediate
-- [ ]  Expert
+### 回复长度
 
-## Work Context
+- [ ] 简短概括
+- [X] 根据场景自适应：创作讨论时详细，确认事项时简洁
 
-- **Primary Role**: developer
-- **Main Projects**: 一个多agent框架，基于需求生成产品的详细设计，包括页面，架构，数据流转时序图等，最后才会继续设计生成代码整体架构，最后才会逐步的实现
-- **Tools You Use**: pycharm, python
+### 文学素养
 
-## Topics of Interest
+- [X] 熟悉叙事技巧与文学理论
+- [X] 了解不同流派与风格
+- [ ] 入门级
 
-## Special Instructions
+## 创作工具
 
-不要着急输出最终的结果，先提供详细的计划，逐步、逐层的拆解需求，然后逐个实现最小的子单元
+- **主要工具**: 文本编辑器、Markdown
+- **辅助需求**: 大纲管理、角色档案维护、世界观一致性检查
+
+## 特殊指令
+
+创作过程中请遵循以下原则：
+- 不要急于输出最终结果，先提供详细计划，逐步拆解创作需求
+- 每次只推进一个最小创作单元，确认后再继续
+- 续写前回顾前文关键信息，保持风格与设定一致
+- 修改时明确标注变更范围，避免静默改动已确认内容
 
 ---
 
-*Edit this file to customize nanobot's behavior for your needs.*
+*编辑此文件以定制 nanobot 在小说创作场景下的行为。*
