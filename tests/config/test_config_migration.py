@@ -34,7 +34,7 @@ def test_load_config_keeps_max_tokens_and_ignores_legacy_memory_window(tmp_path)
     config = load_config(config_path)
 
     assert config.agents.defaults.max_tokens == 1234
-    assert config.agents.defaults.context_window_tokens == 65_536
+    assert config.agents.defaults.context_window_tokens == 200_000
     assert not hasattr(config.agents.defaults, "memory_window")
 
 
@@ -60,7 +60,7 @@ def test_save_config_writes_context_window_tokens_but_not_memory_window(tmp_path
     defaults = saved["agents"]["defaults"]
 
     assert defaults["maxTokens"] == 2222
-    assert defaults["contextWindowTokens"] == 65_536
+    assert defaults["contextWindowTokens"] == 200_000
     assert "memoryWindow" not in defaults
 
 
@@ -85,6 +85,7 @@ def test_onboard_does_not_crash_with_legacy_memory_window(tmp_path, monkeypatch)
     monkeypatch.setattr("nanobot.cli.commands.get_workspace_path", lambda _workspace=None: workspace)
 
     from typer.testing import CliRunner
+
     from nanobot.cli.commands import app
     runner = CliRunner()
     result = runner.invoke(app, ["onboard"], input="n\n")
@@ -131,6 +132,7 @@ def test_onboard_refresh_backfills_missing_channel_fields(tmp_path, monkeypatch)
     )
 
     from typer.testing import CliRunner
+
     from nanobot.cli.commands import app
     runner = CliRunner()
     result = runner.invoke(app, ["onboard"], input="n\n")
@@ -223,3 +225,24 @@ def test_load_config_resets_ssrf_whitelist_when_next_config_is_empty(tmp_path) -
     with patch("nanobot.security.network.socket.getaddrinfo", _fake_resolve("ts.local", ["100.100.1.1"])):
         ok, _ = validate_url_target("http://ts.local/api")
         assert not ok
+
+
+def test_load_config_defaults_local_service_access_to_enabled(tmp_path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(json.dumps({"tools": {}}), encoding="utf-8")
+
+    config = load_config(config_path)
+
+    assert config.tools.webui_allow_local_service_access is True
+
+
+def test_load_config_accepts_legacy_local_preview_access(tmp_path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps({"tools": {"allowLocalPreviewAccess": False}}),
+        encoding="utf-8",
+    )
+
+    config = load_config(config_path)
+
+    assert config.tools.webui_allow_local_service_access is False

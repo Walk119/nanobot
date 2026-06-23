@@ -4,6 +4,7 @@ import sys
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 from nanobot.agent.tools import (
     ArraySchema,
@@ -16,7 +17,7 @@ from nanobot.agent.tools import (
 )
 from nanobot.agent.tools.base import Tool
 from nanobot.agent.tools.registry import ToolRegistry
-from nanobot.agent.tools.shell import ExecTool
+from nanobot.agent.tools.shell import ExecTool, ExecToolConfig
 from nanobot.security.network import configure_ssrf_whitelist
 
 
@@ -124,6 +125,7 @@ def test_schema_classes_equivalent_to_sample_tool_parameters() -> None:
             required=["tag"],
         ),
         required=["query", "count"],
+        additional_properties=None,
     )
     assert built == SampleTool().parameters
 
@@ -192,6 +194,25 @@ def test_validate_params_ignores_unknown_fields() -> None:
     tool = SampleTool()
     errors = tool.validate_params({"query": "hi", "count": 2, "extra": "x"})
     assert errors == []
+
+
+def test_tool_parameters_schema_rejects_unknown_fields_by_default() -> None:
+    tool = DecoratedSampleTool()
+    errors = tool.validate_params({"query": "hi", "count": 2, "extra": "x"})
+    assert errors == ["unexpected parameter extra"]
+
+
+def test_validate_params_validates_typed_additional_properties() -> None:
+    schema = {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": {"type": "integer"},
+    }
+    tool = CastTestTool(schema)
+
+    errors = tool.validate_params({"extra": "2"})
+
+    assert errors == ["extra should be integer"]
 
 
 async def test_registry_returns_validation_error() -> None:
@@ -661,6 +682,26 @@ async def test_exec_timeout_capped_at_max() -> None:
     # Should not raise — just clamp to 600
     result = await tool.execute(command="echo ok", timeout=9999)
     assert "Exit code: 0" in result
+
+
+def test_exec_config_timeout_uncapped_and_zero() -> None:
+    """Config timeout is no longer capped at 600 and accepts 0 = no limit (#3595)."""
+    assert ExecToolConfig(timeout=0).timeout == 0
+    assert ExecToolConfig(timeout=3600).timeout == 3600
+    with pytest.raises(ValidationError):
+        ExecToolConfig(timeout=-1)
+
+
+def test_resolve_timeout_config_uncapped_and_unlimited() -> None:
+    """Config timeout drives the hard timeout uncapped; 0 means no limit (#3595)."""
+    assert ExecTool(timeout=3600)._resolve_timeout(None) == 3600
+    assert ExecTool(timeout=0)._resolve_timeout(None) is None
+
+
+def test_resolve_timeout_per_call_still_capped() -> None:
+    """Per-call (LLM) timeout stays capped at _MAX_TIMEOUT even with unlimited config."""
+    assert ExecTool(timeout=0)._resolve_timeout(9999) == ExecTool._MAX_TIMEOUT
+    assert ExecTool(timeout=60)._resolve_timeout(120) == 120
 
 
 # --- _resolve_type and nullable param tests ---
